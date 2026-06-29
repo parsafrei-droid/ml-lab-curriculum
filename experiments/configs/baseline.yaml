@@ -1,0 +1,12 @@
+# Baseline: no curriculum. The prior keeps the full (random) difficulty range
+# for the whole run - this is the control we compare every scenario against.
+name: baseline
+seed: 42
+epochs: 5
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0: {min_features: 2, max_features: 60, max_classes: 10}

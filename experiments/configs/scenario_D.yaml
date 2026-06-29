@@ -1,0 +1,14 @@
+# Scenario D: grow features AND classes together, easy -> hard. This is the
+# "full" curriculum - everything ramps up at once.
+name: scenario_D
+seed: 42
+epochs: 5
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0:   {min_features: 2, max_features: 5,  max_classes: 2}
+  200: {min_features: 2, max_features: 20, max_classes: 5}
+  400: {min_features: 2, max_features: 60, max_classes: 10}

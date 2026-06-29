@@ -1,0 +1,38 @@
+# Python virtual environment
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Cloned upstream repos — recreated by scripts/setup_env.py (not committed)
+TFM-Playground/
+tabicl/
+
+# Training checkpoints land here (relative to where train() runs)
+workdir/
+
+# Large data files — do not commit
+data/*.h5
+data/*.pkl
+data/*.npz
+*.h5
+results/*.pt
+results/*.pth
+results/*.ckpt
+checkpoints/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoint
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# uv lock (optional — remove if you want to track it)
+uv.lock
