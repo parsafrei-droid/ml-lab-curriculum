@@ -29,12 +29,13 @@ sys.path.insert(0, str(BASE / "tabicl"))
 sys.path.insert(0, str(BASE))
 
 import matplotlib.pyplot as plt
+import torch
 import yaml
 from torch import nn
 
+from curriculum.prior import make_prior
 from curriculum.scheduler import CurriculumScheduler
 from tfmplayground.callbacks import Callback
-from tfmplayground.external_priors import TabICLPriorDataLoader
 from tfmplayground.models.nanotabpfn import NanoTabPFNModel
 from tfmplayground.train import train
 from tfmplayground.utils import get_default_device, set_randomness_seed
@@ -48,23 +49,38 @@ class LossLoggerCallback(Callback):
     afterwards, via eval_tabarena.py.
     """
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, device):
         self.out_dir = out_dir
-        self.rows = []  # (epoch, time, loss)
+        self.device = device
+        self.rows = []  # (epoch, loss)
+        self.cum_time = 0.0
+        self.peak_gpu_gb = 0.0
         self.csv_path = out_dir / "loss.csv"
-        self.csv_path.write_text("epoch,time_s,loss\n")
+        self.csv_path.write_text("epoch,epoch_time_s,cum_time_s,loss,gpu_mem_gb\n")
+
+    def _gpu_gb(self):
+        # peak memory since the last reset, in GB (0 on CPU)
+        if str(self.device).startswith("cuda"):
+            gb = torch.cuda.max_memory_allocated() / 1e9
+            torch.cuda.reset_peak_memory_stats()
+            return gb
+        return 0.0
 
     def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
-        self.rows.append((epoch, epoch_time, loss))
+        self.cum_time += epoch_time
+        gpu = self._gpu_gb()
+        self.peak_gpu_gb = max(self.peak_gpu_gb, gpu)
+        self.rows.append((epoch, loss))
         with self.csv_path.open("a") as f:
-            f.write(f"{epoch},{epoch_time:.3f},{loss:.6f}\n")
-        print(f"epoch {epoch:4d} | time {epoch_time:6.2f}s | loss {loss:.4f}", flush=True)
+            f.write(f"{epoch},{epoch_time:.3f},{self.cum_time:.3f},{loss:.6f},{gpu:.3f}\n")
+        print(f"epoch {epoch:4d} | time {epoch_time:6.2f}s | cum {self.cum_time:7.1f}s "
+              f"| loss {loss:.4f} | gpu {gpu:.2f}GB", flush=True)
 
     def close(self):
         if not self.rows:
             return
         epochs = [r[0] for r in self.rows]
-        losses = [r[2] for r in self.rows]
+        losses = [r[1] for r in self.rows]
         plt.figure(figsize=(6, 4))
         plt.plot(epochs, losses, marker="o", ms=3)
         plt.xlabel("epoch")
@@ -99,18 +115,21 @@ def main():
     # classes has to cover the hardest stage we'll ever reach.
     num_outputs = max(stage.get("max_classes", 2) for stage in schedule.values())
 
-    # Build the prior at the first stage's settings; the scheduler takes over from there.
+    # Build the prior at the first stage's settings; the scheduler takes over from
+    # there. make_prior gives it a private sampled_hp so internal knobs (noise etc.)
+    # are controllable, and applies the first stage's knobs up front.
     first = schedule[min(schedule)]
-    num_datapoints = cfg.get("num_datapoints", 200)
-    prior = TabICLPriorDataLoader(
+    external = {k: v for k, v in first.items() if k in ("min_features", "max_features")}
+    internal = {k: v for k, v in first.items() if k not in ("min_features", "max_features", "max_classes")}
+    prior = make_prior(
+        max_features=first["max_features"],
+        max_classes=num_outputs,
+        min_features=external.get("min_features", 2),
+        num_datapoints=cfg.get("num_datapoints", 200),
         num_steps=cfg["steps"],
         batch_size=cfg.get("batch_size", 1),
-        num_datapoints_min=num_datapoints,
-        num_datapoints_max=num_datapoints + 1,
-        min_features=first.get("min_features", 2),
-        max_features=first["max_features"],
-        max_num_classes=num_outputs,
         device=device,
+        knobs=internal or None,
     )
     scheduler = CurriculumScheduler(prior, schedule)
 
@@ -129,6 +148,7 @@ def main():
     print(f"=== training '{name}' | {cfg['epochs']} epochs x {cfg['steps']} steps "
           f"| num_outputs={num_outputs} | device={device} ===")
 
+    logger = LossLoggerCallback(out_dir, device)
     start = time.time()
     train(
         model=model,
@@ -137,7 +157,7 @@ def main():
         epochs=cfg["epochs"],
         lr=cfg.get("lr", 1e-4),
         device=device,
-        callbacks=[LossLoggerCallback(out_dir)],
+        callbacks=[logger],
         run_name=name,
     )
     elapsed = time.time() - start
@@ -154,15 +174,23 @@ def main():
     else:
         print("warning: could not find the saved checkpoint to copy", flush=True)
 
+    total_steps = cfg["epochs"] * cfg["steps"]
+    final_loss = logger.rows[-1][1] if logger.rows else None
     meta = {
         "name": name,
         "seed": cfg.get("seed", 42),
-        "total_steps": cfg["epochs"] * cfg["steps"],
+        "device": str(device),
+        "total_steps": total_steps,
         "elapsed_s": round(elapsed, 1),
+        # compute-resource summary, so we can compare "same compute" fairly
+        "sec_per_step": round(elapsed / total_steps, 4),
+        "steps_per_sec": round(total_steps / elapsed, 2),
+        "peak_gpu_gb": round(logger.peak_gpu_gb, 3),
+        "final_loss": round(final_loss, 4) if final_loss is not None else None,
         "num_outputs": num_outputs,
     }
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
-    print(f"done in {elapsed:.1f}s -> {out_dir}")
+    print(f"done in {elapsed:.1f}s ({meta['sec_per_step']}s/step) -> {out_dir}")
 
 
 if __name__ == "__main__":

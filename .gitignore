@@ -19,9 +19,11 @@ data/*.h5
 data/*.pkl
 data/*.npz
 *.h5
-results/*.pt
-results/*.pth
-results/*.ckpt
+# checkpoints are big (~44 MB each) - keep them out, but DO commit the small
+# per-run artifacts (loss.csv, meta.json, tabarena_scores.json, *.png)
+results/**/*.pt
+results/**/*.pth
+results/**/*.ckpt
 checkpoints/
 
 # Jupyter checkpoints

@@ -1,0 +1,16 @@
+# ABLATION - ramp ONLY noise_std, everything else pinned at the full regime.
+# The sweep predicts this barely helps (one knob can't move difficulty alone).
+# If it doesn't beat baseline but curriculum_combined does, that supports the
+# "you need the whole regime" story.
+name: curriculum_noise
+seed: 42
+epochs: 20
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0:    {min_features: 2, max_features: 60, max_classes: 10, num_layers: 6, hidden_dim: 128, num_causes: 12, noise_std: 0.02}
+  700:  {noise_std: 0.1}
+  1400: {noise_std: 0.3}

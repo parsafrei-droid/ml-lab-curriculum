@@ -3,25 +3,58 @@
 You give it a schedule keyed by global step:
 
     schedule = {
-        0:   {"max_features": 5,   "max_classes": 2},
-        200: {"max_features": 20,  "max_classes": 5},
-        500: {"max_features": 100, "max_classes": 10},
+        0:   {"noise_std": 0.05, "max_features": 20},
+        200: {"noise_std": 0.15},
+        400: {"noise_std": 0.30},
     }
 
-and call .step(global_step) once per training step. When the step crosses a
-threshold it pushes the new knobs into the prior.
+and call .step(global_step) once per training step (or just iterate it - see
+below). When the step crosses a threshold it pushes the new knobs into the prior.
 
-The fiddly bit: TabICLPriorDataLoader builds the real generator at init time and
-keeps it at loader.pd (a PriorDataset) -> loader.pd.prior (an SCMPrior). The
-generator reads these values off the SCMPrior *every time it makes a batch*, so
-to actually change difficulty we have to set them down there, not just on the
-loader. _apply walks those layers and sets the value wherever it lives.
+Two kinds of knob, handled by apply_knobs:
+
+  * EXTERNAL - plain attributes on TabICL's generator (feature/class/row counts).
+    TabICLPriorDataLoader keeps the generator at loader.pd (a PriorDataset) ->
+    loader.pd.prior (an SCMPrior), and reads these off the SCMPrior every time
+    it makes a batch, so we set them there.
+
+  * INTERNAL - the sampled hyper-parameters (noise, MLP depth/width, causes).
+    These aren't single values, they're *ranges* the prior samples from. We move
+    the top of the range (max_mean): low = easy, high = hard. This is where the
+    real difficulty lives (features/classes barely move it - see the sweep).
 """
 
-# The knobs we know how to change mid-training. These are the real attribute
-# names on TabICL's generator, so a config can't quietly set something that
-# does nothing.
-KNOBS = {"min_features", "max_features", "max_classes", "min_seq_len", "max_seq_len"}
+# plain attributes on the generator
+EXTERNAL_KNOBS = {"min_features", "max_features", "max_classes", "min_seq_len", "max_seq_len"}
+# sampled-HP ranges; the value we set is the upper bound (max_mean) of the range
+INTERNAL_KNOBS = {"noise_std", "num_layers", "hidden_dim", "num_causes"}
+KNOBS = EXTERNAL_KNOBS | INTERNAL_KNOBS
+
+
+def apply_knobs(prior, params):
+    """Push a {knob: value} dict into a TabICL prior loader, in place."""
+    pd = getattr(prior, "pd", None)
+    scm = getattr(pd, "prior", None)
+
+    for name, value in params.items():
+        if name in EXTERNAL_KNOBS:
+            # set it wherever the attribute actually lives
+            for target in (prior, pd, scm):
+                if target is not None and hasattr(target, name):
+                    setattr(target, name, value)
+        elif name in INTERNAL_KNOBS:
+            if scm is None or not hasattr(scm, "sampled_hp"):
+                raise RuntimeError(
+                    "this prior can't control internal knobs - build it with "
+                    "curriculum.prior.make_prior so it gets a private sampled_hp"
+                )
+            spec = scm.sampled_hp[name]
+            spec["max_mean"] = value
+            # keep the range valid: the bottom can't sit above the new top
+            if spec.get("min_mean", 0) > value:
+                spec["min_mean"] = value
+        else:
+            raise ValueError(f"unknown knob {name!r}. allowed: {sorted(KNOBS)}")
 
 
 class CurriculumScheduler:
@@ -38,17 +71,6 @@ class CurriculumScheduler:
         # this is exactly the global step the schedule is keyed on.
         self.global_step = 0
 
-    def _targets(self):
-        """The objects that might hold a knob: the loader, its PriorDataset, and the SCMPrior."""
-        pd = getattr(self.prior, "pd", None)
-        return [self.prior, pd, getattr(pd, "prior", None)]
-
-    def _apply(self, params):
-        for name, value in params.items():
-            for target in self._targets():
-                if target is not None and hasattr(target, name):
-                    setattr(target, name, value)
-
     def step(self, global_step):
         # find the most advanced stage whose threshold we've passed
         stage = None
@@ -59,7 +81,7 @@ class CurriculumScheduler:
         # only do something when we move into a new stage
         if stage is not None and stage is not self.current_stage:
             self.current_stage = stage
-            self._apply(stage)
+            apply_knobs(self.prior, stage)
             print(f"[curriculum] step {global_step}: -> {stage}", flush=True)
 
     # The scheduler stands in for the prior in the training loop. As the loop

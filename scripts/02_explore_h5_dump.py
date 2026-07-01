@@ -6,13 +6,11 @@ Usage:
     python scripts/02_explore_h5_dump.py
 """
 
-import sys
 import pathlib
 
 BASE = pathlib.Path(__file__).parent.parent
 
 import h5py
-import numpy as np
 
 DATA_DIR = BASE / "data"
 
