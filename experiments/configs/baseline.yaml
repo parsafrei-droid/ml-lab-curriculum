@@ -1,12 +1,13 @@
-# Baseline: no curriculum. The prior keeps the full (random) difficulty range
-# for the whole run - this is the control we compare every scenario against.
+# BASELINE (control) - no curriculum. The prior stays at the full/hard regime
+# the whole run, i.e. the normal way nanoTabPFN is trained. Every curriculum
+# scenario ends at this same regime, so the only difference is the *order*.
 name: baseline
 seed: 42
-epochs: 5
+epochs: 20        # 20 x 100 = 2000 global steps  (bump epochs for the final run)
 steps: 100
 batch_size: 1
 lr: 1.0e-4
 num_datapoints: 200
 
 schedule:
-  0: {min_features: 2, max_features: 60, max_classes: 10}
+  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}

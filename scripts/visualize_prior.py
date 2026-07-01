@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.decomposition import PCA
 
-from curriculum.difficulty import difficulty_score, measured_difficulty
+from curriculum.difficulty import difficulty_score, learnability_difficulty
 from curriculum.prior import make_prior, sample_dataset
 
 # The stages we want to look at. These mirror the "easy/medium/hard" idea from
@@ -71,7 +71,7 @@ def main():
 
         for col in range(SAMPLES_PER_STAGE):
             X, y = sample_dataset(prior)
-            measured = measured_difficulty(X, y)
+            measured = learnability_difficulty(X, y)
 
             # show the shapes so we can see the data structure, not just the plot
             print(f"  sample {col}: X={X.shape}, y={y.shape}, "
