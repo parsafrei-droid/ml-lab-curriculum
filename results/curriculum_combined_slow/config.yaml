@@ -1,0 +1,17 @@
+# RAMP-SPEED VARIANT - same narrow -> full regime as curriculum_combined, but
+# spread over 5 smaller steps instead of 3. Tests whether a gentler ramp helps,
+# so we can say something about *how* to schedule, not just whether to.
+name: curriculum_combined_slow
+seed: 42
+epochs: 20
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0:    {min_features: 2, max_features: 4,  max_classes: 2,  noise_std: 0.02, num_layers: 2, hidden_dim: 16,  num_causes: 2}
+  400:  {max_features: 10, max_classes: 4,  noise_std: 0.06, num_layers: 3, hidden_dim: 32,  num_causes: 4}
+  800:  {max_features: 20, max_classes: 6,  noise_std: 0.12, num_layers: 4, hidden_dim: 64,  num_causes: 6}
+  1200: {max_features: 40, max_classes: 8,  noise_std: 0.2,  num_layers: 5, hidden_dim: 96,  num_causes: 9}
+  1600: {max_features: 60, max_classes: 10, noise_std: 0.3,  num_layers: 6, hidden_dim: 128, num_causes: 12}
