@@ -30,6 +30,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True, help="path to a checkpoint.pth")
     parser.add_argument("--tasks", choices=["toy", "tabarena"], default="toy")
+    parser.add_argument(
+        "--max-n-samples", type=int, default=5_000,
+        help="skip OpenML tasks with more rows than this - datapoint attention is "
+             "O(n^2) in rows and large tasks OOM the GPU (default 5000)",
+    )
     args = parser.parse_args()
 
     device = get_default_device()
@@ -37,9 +42,13 @@ def main():
     classifier = NanoTabPFNClassifier(model=args.checkpoint, device=device)
 
     tasks = TOY_TASKS_CLASSIFICATION if args.tasks == "toy" else TABARENA_TASKS
-    print(f"evaluating {args.checkpoint} on {len(tasks)} {args.tasks} task(s)...", flush=True)
+    print(f"evaluating {args.checkpoint} on {len(tasks)} {args.tasks} task(s)..."
+          f" (max_n_samples={args.max_n_samples})", flush=True)
 
-    predictions = get_openml_predictions(model=classifier, classification=True, tasks=tasks)
+    predictions = get_openml_predictions(
+        model=classifier, classification=True, tasks=tasks,
+        max_n_samples=args.max_n_samples,
+    )
 
     scores = {}
     for name, (y_true, _y_pred, y_proba) in predictions.items():
