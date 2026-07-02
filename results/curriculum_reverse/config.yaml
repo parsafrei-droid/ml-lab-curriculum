@@ -1,0 +1,15 @@
+# SANITY CHECK - the combined curriculum run backwards, hard -> easy. If order
+# genuinely matters, this should do WORSE than curriculum_combined (and probably
+# worse than baseline). Same stages as combined, flipped.
+name: curriculum_reverse
+seed: 42
+epochs: 20
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0:    {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3,  num_layers: 6, hidden_dim: 128, num_causes: 12}
+  700:  {max_features: 20, max_classes: 5,  noise_std: 0.1,  num_layers: 4, hidden_dim: 64,  num_causes: 6}
+  1400: {max_features: 4,  max_classes: 2,  noise_std: 0.02, num_layers: 2, hidden_dim: 16,  num_causes: 2}
