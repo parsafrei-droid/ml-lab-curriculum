@@ -23,6 +23,8 @@ echo "=== training $SCENARIO ==="
 python scripts/run.py --config experiments/configs/$SCENARIO.yaml
 
 echo "=== evaluating $SCENARIO on TabArena ==="
-python scripts/eval_tabarena.py --checkpoint results/$SCENARIO/checkpoint.pth --tasks tabarena
+# --max-n-samples caps rows per OpenML task: datapoint attention is O(n^2) in
+# rows and large tasks OOM the GPU (see curriculum_reverse job 5682708)
+python scripts/eval_tabarena.py --checkpoint results/$SCENARIO/checkpoint.pth --tasks tabarena --max-n-samples 5000
 
 echo "=== done: commit results/$SCENARIO/ (checkpoint stays local) ==="
