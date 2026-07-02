@@ -38,3 +38,5 @@ Thumbs.db
 
 # uv lock (optional — remove if you want to track it)
 uv.lock
+
+*.out
