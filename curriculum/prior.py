@@ -10,10 +10,19 @@ difficulty code wants.
 
 from copy import deepcopy
 
+import numpy as np
+import torch
 from tabicl.prior._prior_config import DEFAULT_SAMPLED_HP
 from tfmplayground.external_priors import TabICLPriorDataLoader
 
 from curriculum.scheduler import apply_knobs
+
+# The "full" prior regime - what baseline trains on and every curriculum ends at.
+# We use it to build the shared validation set below.
+FULL_REGIME = dict(
+    max_features=60, max_classes=10, min_features=2,
+    knobs={"noise_std": 0.3, "num_layers": 6, "hidden_dim": 128, "num_causes": 12},
+)
 
 
 def make_prior(max_features, max_classes, min_features=2, num_datapoints=200,
@@ -43,6 +52,37 @@ def make_prior(max_features, max_classes, min_features=2, num_datapoints=200,
     if knobs:
         apply_knobs(prior, knobs)
     return prior
+
+
+def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, regime=FULL_REGIME):
+    """A FIXED set of validation datasets, identical for every training run.
+
+    This is the whole point of comparable evaluation: training loss can't be
+    compared across scenarios because each ends on different-difficulty data, so
+    a curriculum that finishes on easy data looks "better" for free. Instead we
+    score every model on this one shared set each epoch.
+
+    We seed the RNG to a fixed value so all runs get the *same* validation data,
+    and restore the RNG afterwards so training reproducibility is untouched.
+    Returns a list of (x, y, train_test_split_index) with tensors on `device`.
+    """
+    np_state, torch_state = np.random.get_state(), torch.get_rng_state()
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    try:
+        prior = make_prior(
+            max_features=regime["max_features"], max_classes=regime["max_classes"],
+            min_features=regime.get("min_features", 2), num_datapoints=num_datapoints,
+            num_steps=n, batch_size=1, device=device, knobs=regime.get("knobs"),
+        )
+        batches = []
+        for _ in range(n):
+            b = next(iter(prior))
+            batches.append((b["x"], b["y"], b["train_test_split_index"]))
+    finally:
+        np.random.set_state(np_state)
+        torch.set_rng_state(torch_state)
+    return batches
 
 
 def sample_dataset(prior):

@@ -108,14 +108,28 @@ Each person runs steps 2–3 for both their scenarios, then commits their
 | file | what |
 |---|---|
 | `checkpoint.pth` | trained model (git-ignored, stays local — 44 MB) |
-| `loss.csv` | per epoch: `epoch, epoch_time_s, cum_time_s, loss, gpu_mem_gb` |
-| `loss_curve.png` | that loss, plotted |
-| `meta.json` | seed, total_steps, **elapsed_s, sec_per_step, peak_gpu_gb**, final_loss |
+| `loss.csv` | per epoch training loss (NOT comparable across scenarios — see below) |
+| `val.csv` | per epoch **val_loss, val_acc on a shared fixed set** — the comparable metric |
+| `loss_curve.png` / `val_loss_curve.png` | those curves, plotted |
+| `meta.json` | seed, total_steps, **elapsed_s, sec_per_step, peak_gpu_gb, final_val_loss, final_val_acc** |
 | `tabarena_scores.json` | per-dataset + mean ROC-AUC on TabArena |
 | `config.yaml` | the exact config used |
 
 `meta.json` carries the **compute-resource** numbers so we can compare "same
 compute" fairly, not just final accuracy — that's the actual research question.
+
+### Comparability: use val_loss, not train_loss
+
+**Do not compare `loss.csv` (training loss) across scenarios.** Each scenario
+ends on different-difficulty data, so a run that finishes on easy data has a low
+final train loss *for free* — it hasn't learned more, it's just being tested on
+easier batches. Every scenario is instead scored each epoch on **one shared,
+fixed validation set** (`val.csv`), which is identical for all runs. Compare
+**`val_loss` / `val_acc`** (comparable) and **TabArena ROC-AUC** (ground truth).
+
+> All results pushed before this were train-loss only — **please rerun your
+> scenarios** so they log `val.csv`, and run `baseline` (it was missed the first
+> time; without the control we can't conclude anything).
 
 ---
 

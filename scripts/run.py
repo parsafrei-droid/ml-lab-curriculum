@@ -33,7 +33,7 @@ import torch
 import yaml
 from torch import nn
 
-from curriculum.prior import make_prior
+from curriculum.prior import make_prior, make_validation_batches
 from curriculum.scheduler import CurriculumScheduler
 from tfmplayground.callbacks import Callback
 from tfmplayground.models.nanotabpfn import NanoTabPFNModel
@@ -88,6 +88,56 @@ class LossLoggerCallback(Callback):
         plt.title(self.out_dir.name)
         plt.tight_layout()
         plt.savefig(self.out_dir / "loss_curve.png", dpi=120)
+        plt.close()
+
+
+class FixedValidationCallback(Callback):
+    """Scores the model each epoch on ONE shared validation set.
+
+    Every scenario is judged on the same fixed synthetic datasets, so val_loss is
+    directly comparable across runs - unlike training loss, which just reflects
+    whatever difficulty a run ends on. This is the honest training-time signal;
+    TabArena (via eval_tabarena.py) is the independent ground truth.
+    """
+
+    def __init__(self, out_dir, device, n=16):
+        self.out_dir = out_dir
+        self.batches = make_validation_batches(device, n=n)
+        self.criterion = nn.CrossEntropyLoss()
+        self.rows = []  # (epoch, val_loss, val_acc)
+        self.final = None
+        self.csv_path = out_dir / "val.csv"
+        self.csv_path.write_text("epoch,val_loss,val_acc\n")
+
+    @torch.no_grad()
+    def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
+        # train() has already put the model (and schedule-free optimizer) in eval
+        # mode before calling us, so the weights here are the right ones to score.
+        n_out = model.num_outputs
+        losses, accs = [], []
+        for x, y, split in self.batches:
+            out = model((x, y[:, :split]), train_test_split_index=split).view(-1, n_out)
+            tgt = y[:, split:].reshape(-1).long()
+            losses.append(self.criterion(out, tgt).item())
+            accs.append((out.argmax(-1) == tgt).float().mean().item())
+        vl, va = float(sum(losses) / len(losses)), float(sum(accs) / len(accs))
+        self.rows.append((epoch, vl, va))
+        self.final = (vl, va)
+        with self.csv_path.open("a") as f:
+            f.write(f"{epoch},{vl:.6f},{va:.4f}\n")
+        print(f"            | val_loss {vl:.4f} | val_acc {va:.4f}", flush=True)
+
+    def close(self):
+        if not self.rows:
+            return
+        epochs = [r[0] for r in self.rows]
+        plt.figure(figsize=(6, 4))
+        plt.plot(epochs, [r[1] for r in self.rows], marker="o", ms=3)
+        plt.xlabel("epoch")
+        plt.ylabel("validation loss (shared set)")
+        plt.title(self.out_dir.name)
+        plt.tight_layout()
+        plt.savefig(self.out_dir / "val_loss_curve.png", dpi=120)
         plt.close()
 
 
@@ -149,6 +199,7 @@ def main():
           f"| num_outputs={num_outputs} | device={device} ===")
 
     logger = LossLoggerCallback(out_dir, device)
+    validator = FixedValidationCallback(out_dir, device)
     start = time.time()
     train(
         model=model,
@@ -157,7 +208,7 @@ def main():
         epochs=cfg["epochs"],
         lr=cfg.get("lr", 1e-4),
         device=device,
-        callbacks=[logger],
+        callbacks=[logger, validator],
         run_name=name,
     )
     elapsed = time.time() - start
@@ -186,7 +237,10 @@ def main():
         "sec_per_step": round(elapsed / total_steps, 4),
         "steps_per_sec": round(total_steps / elapsed, 2),
         "peak_gpu_gb": round(logger.peak_gpu_gb, 3),
-        "final_loss": round(final_loss, 4) if final_loss is not None else None,
+        "final_train_loss": round(final_loss, 4) if final_loss is not None else None,
+        # comparable across scenarios (same validation set for everyone)
+        "final_val_loss": round(validator.final[0], 4) if validator.final else None,
+        "final_val_acc": round(validator.final[1], 4) if validator.final else None,
         "num_outputs": num_outputs,
     }
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
