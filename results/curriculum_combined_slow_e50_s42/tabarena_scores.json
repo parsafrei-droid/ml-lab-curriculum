@@ -1,0 +1,23 @@
+{
+  "checkpoint": "results/curriculum_combined_slow_e50_s42/checkpoint.pth",
+  "task_set": "tabarena",
+  "mean_roc_auc": 0.6271379645076367,
+  "per_dataset": {
+    "anneal": 0.7041363753826988,
+    "blood-transfusion-service-center": 0.5569298245614035,
+    "churn": 0.6968044155444219,
+    "credit-g": 0.5366239316239316,
+    "diabetes": 0.7703480589022758,
+    "Fitness_Club": 0.5519699032062916,
+    "hazelnut-spread-contaminant-detection": 0.73259375,
+    "Is-this-a-good-customer": 0.3660177412633208,
+    "Marketing_Campaign": 0.7145943112924245,
+    "maternal_health_risk": 0.7728742885332488,
+    "qsar-biodeg": 0.7366105240379412,
+    "seismic-bumps": 0.7510733355126946,
+    "splice": 0.3496378096114639,
+    "students_dropout_and_academic_success": 0.6467748179599823,
+    "website_phishing": 0.6372498515258386,
+    "MIC": 0.5099684931642503
+  }
+}

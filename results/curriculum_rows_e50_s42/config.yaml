@@ -1,0 +1,20 @@
+# COMPUTE curriculum on dataset size (rows). Everything else stays at the full
+# regime; only the number of rows ramps few -> many, ending at ~200 (baseline).
+#
+# Note the twist: for rows, cheap and easy point OPPOSITE ways. Few rows = fewer
+# in-context examples = HARDER for the model, but CHEAPER to compute (datapoint
+# attention is O(rows^2)). So this front-loads cheap-but-hard data on purpose -
+# it tests whether the compute saving comes from difficulty order or just from
+# starting on cheap data. Rows is the biggest compute lever we have.
+name: curriculum_rows
+seed: 42
+epochs: 20        # 2000 global steps, ramped at 0 / 700 / 1400 (matches the others)
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200   # only the loader's initial value; the schedule overrides it
+
+schedule:
+  0:    {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12, min_seq_len: 40,  max_seq_len: 80}
+  700:  {min_seq_len: 100, max_seq_len: 160}
+  1400: {min_seq_len: 180, max_seq_len: 220}
