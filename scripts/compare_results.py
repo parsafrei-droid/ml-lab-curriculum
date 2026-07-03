@@ -1,14 +1,17 @@
 """Pull every scenario's results together into the poster figures.
 
-After all three of us have run our scenarios (and their eval_tabarena.py), one
-person runs this. It scans results/*/ and produces:
+Runs are named <scenario>_s<seed> (e.g. baseline_s42, baseline_s43, ...). We
+group by scenario and report mean +/- std across seeds, so the comparison has
+error bars instead of single noisy points.
 
-    experiments/comparison_loss.png      - all loss curves on one axis
-    experiments/comparison_tabarena.png  - mean TabArena ROC-AUC per scenario
-    experiments/comparison_summary.csv   - one row per scenario, the numbers
+After everyone has run their scenarios (train + eval_tabarena) and committed
+results/, one person runs this. It scans results/*/ and produces:
 
-The whole poster comparison is these three files. Missing pieces are skipped, so
-you can run it early to see partial results.
+    experiments/comparison_val_loss.png   - shared-validation loss curves (comparable)
+    experiments/comparison_roc_auc.png    - mean TabArena ROC-AUC, error bars
+    experiments/comparison_summary.csv    - the numbers, one row per scenario
+
+Missing pieces are skipped, so you can run it early for partial results.
 
     python scripts/compare_results.py
 """
@@ -16,6 +19,8 @@ you can run it early to see partial results.
 import csv
 import json
 import pathlib
+import re
+import statistics
 import sys
 
 BASE = pathlib.Path(__file__).parent.parent
@@ -31,19 +36,9 @@ def load_runs():
     """One dict per scenario folder that has at least a meta.json."""
     runs = []
     for d in sorted(RESULTS.glob("*")):
-        meta_path = d / "meta.json"
-        if not meta_path.exists():
+        if not (d / "meta.json").exists():
             continue
-        run = {"name": d.name, "dir": d, "meta": json.loads(meta_path.read_text())}
-
-        loss_csv = d / "loss.csv"
-        if loss_csv.exists():
-            epochs, losses = [], []
-            with loss_csv.open() as f:
-                for row in csv.DictReader(f):
-                    epochs.append(int(row["epoch"]))
-                    losses.append(float(row["loss"]))
-            run["epochs"], run["losses"] = epochs, losses
+        run = {"name": d.name, "meta": json.loads((d / "meta.json").read_text())}
 
         val_csv = d / "val.csv"
         if val_csv.exists():
@@ -56,82 +51,91 @@ def load_runs():
 
         scores_path = d / "tabarena_scores.json"
         if scores_path.exists():
-            run["scores"] = json.loads(scores_path.read_text())
+            run["roc_auc"] = json.loads(scores_path.read_text())["mean_roc_auc"]
         runs.append(run)
     return runs
 
 
-def plot_loss(runs):
-    have = [r for r in runs if r.get("losses")]
-    if not have:
-        return
-    plt.figure(figsize=(7, 5))
-    for r in have:
-        plt.plot(r["epochs"], r["losses"], marker="o", ms=3, label=r["name"])
-    plt.xlabel("epoch")
-    plt.ylabel("mean loss")
-    plt.title("Training loss by scenario")
-    plt.legend(fontsize=8)
-    plt.tight_layout()
-    plt.savefig(OUT / "comparison_loss.png", dpi=120)
-    plt.close()
+def base_name(name):
+    """baseline_s42 -> baseline ; leaves un-seeded names untouched."""
+    return re.sub(r"_s\d+$", "", name)
 
 
-def plot_val_loss(runs):
-    """The comparable curve: every scenario scored on the same validation set."""
-    have = [r for r in runs if r.get("val_losses")]
+def group_runs(runs):
+    groups = {}
+    for r in runs:
+        groups.setdefault(base_name(r["name"]), []).append(r)
+    return groups
+
+
+def mean_std(vals):
+    vals = [v for v in vals if v is not None]
+    if not vals:
+        return None, 0.0
+    return sum(vals) / len(vals), (statistics.pstdev(vals) if len(vals) > 1 else 0.0)
+
+
+def plot_val_loss(groups):
+    """One averaged validation-loss curve per scenario (the comparable metric)."""
+    have = {b: rs for b, rs in groups.items() if any(r.get("val_losses") for r in rs)}
     if not have:
         print("  (no val.csv yet - rerun training so it logs the shared validation loss)")
         return
     plt.figure(figsize=(7, 5))
-    for r in have:
-        plt.plot(r["val_epochs"], r["val_losses"], marker="o", ms=3, label=r["name"])
+    for base, rs in sorted(have.items()):
+        curves = [r["val_losses"] for r in rs if r.get("val_losses")]
+        length = min(len(c) for c in curves)
+        mean_curve = [sum(c[i] for c in curves) / len(curves) for i in range(length)]
+        epochs = next(r["val_epochs"] for r in rs if r.get("val_epochs"))[:length]
+        plt.plot(epochs, mean_curve, marker="o", ms=3, label=base)
     plt.xlabel("epoch")
-    plt.ylabel("validation loss (shared set)")
-    plt.title("Validation loss by scenario (comparable)")
+    plt.ylabel("validation loss (shared set, mean over seeds)")
+    plt.title("Comparable validation loss by scenario")
     plt.legend(fontsize=8)
     plt.tight_layout()
     plt.savefig(OUT / "comparison_val_loss.png", dpi=120)
     plt.close()
 
 
-def plot_tabarena(runs):
-    have = [r for r in runs if r.get("scores")]
-    if not have:
+def plot_roc_auc(groups):
+    names, means, stds = [], [], []
+    for base, rs in sorted(groups.items()):
+        m, s = mean_std([r.get("roc_auc") for r in rs])
+        if m is not None:
+            names.append(base)
+            means.append(m)
+            stds.append(s)
+    if not names:
         print("  (no tabarena_scores.json yet - run eval_tabarena.py first)")
         return
-    names = [r["name"] for r in have]
-    aucs = [r["scores"]["mean_roc_auc"] for r in have]
-    plt.figure(figsize=(7, 5))
-    bars = plt.bar(names, aucs, color="tab:blue")
-    for b, a in zip(bars, aucs):
-        plt.text(b.get_x() + b.get_width() / 2, a, f"{a:.3f}", ha="center", va="bottom", fontsize=8)
-    plt.ylabel("mean TabArena ROC-AUC")
+    plt.figure(figsize=(8, 5))
+    bars = plt.bar(names, means, yerr=stds, capsize=5, color="tab:blue")
+    for b, m in zip(bars, means):
+        plt.text(b.get_x() + b.get_width() / 2, m, f"{m:.3f}", ha="center", va="bottom", fontsize=8)
+    plt.ylabel("mean TabArena ROC-AUC (error bars = std over seeds)")
     plt.title("Final performance by scenario")
     plt.xticks(rotation=30, ha="right")
     plt.tight_layout()
-    plt.savefig(OUT / "comparison_tabarena.png", dpi=120)
+    plt.savefig(OUT / "comparison_roc_auc.png", dpi=120)
     plt.close()
 
 
-def write_summary(runs):
-    # val_loss / val_acc are the comparable training-time numbers; roc_auc is the
-    # ground truth. train_loss is kept but is NOT comparable across scenarios.
-    cols = ["name", "total_steps", "elapsed_s", "sec_per_step", "peak_gpu_gb",
-            "final_val_loss", "final_val_acc", "mean_roc_auc", "final_train_loss"]
+def rnd(x):
+    return round(x, 4) if x is not None else ""
+
+
+def write_summary(groups):
+    cols = ["scenario", "n_seeds", "val_loss_mean", "val_loss_std",
+            "val_acc_mean", "roc_auc_mean", "roc_auc_std"]
     with (OUT / "comparison_summary.csv").open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(cols)
-        print("\n" + " | ".join(f"{c:>15}" for c in cols))
-        for r in runs:
-            m = r["meta"]
-            auc = r["scores"]["mean_roc_auc"] if r.get("scores") else ""
-            # older runs stored the training loss as "final_loss"
-            train_loss = m.get("final_train_loss", m.get("final_loss"))
-            row = [r["name"], m.get("total_steps"), m.get("elapsed_s"),
-                   m.get("sec_per_step"), m.get("peak_gpu_gb"),
-                   m.get("final_val_loss"), m.get("final_val_acc"),
-                   round(auc, 4) if auc != "" else "", train_loss]
+        print("\n" + " | ".join(f"{c:>13}" for c in cols))
+        for base, rs in sorted(groups.items()):
+            vl_m, vl_s = mean_std([r["meta"].get("final_val_loss") for r in rs])
+            va_m, _ = mean_std([r["meta"].get("final_val_acc") for r in rs])
+            au_m, au_s = mean_std([r.get("roc_auc") for r in rs])
+            row = [base, len(rs), rnd(vl_m), rnd(vl_s), rnd(va_m), rnd(au_m), rnd(au_s)]
             w.writerow(row)
             print(" | ".join(f"{str(v):>13}" for v in row))
 
@@ -142,11 +146,11 @@ def main():
     if not runs:
         print(f"no results found under {RESULTS}/ - run scripts/run.py first")
         return
-    print(f"found {len(runs)} run(s): {', '.join(r['name'] for r in runs)}")
-    plot_loss(runs)
-    plot_val_loss(runs)
-    plot_tabarena(runs)
-    write_summary(runs)
+    groups = group_runs(runs)
+    print(f"found {len(runs)} run(s) in {len(groups)} scenario(s): {', '.join(sorted(groups))}")
+    plot_val_loss(groups)
+    plot_roc_auc(groups)
+    write_summary(groups)
     print(f"\nsaved figures + summary -> {OUT}/")
 
 

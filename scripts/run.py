@@ -152,9 +152,16 @@ def load_config(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="path to a scenario YAML")
+    parser.add_argument("--seed", type=int, default=None, help="override the config's seed")
+    parser.add_argument("--name", type=str, default=None, help="override the run name (result folder)")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    # let the CLI override seed/name, so a driver can sweep seeds without editing YAML
+    if args.seed is not None:
+        cfg["seed"] = args.seed
+    if args.name is not None:
+        cfg["name"] = args.name
     name = cfg["name"]
     schedule = cfg["schedule"]
 
