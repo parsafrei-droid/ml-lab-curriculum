@@ -89,17 +89,28 @@ python scripts/eval_tabarena.py --checkpoint results/curriculum_combined/checkpo
 python scripts/compare_results.py       # -> experiments/comparison_*.png + summary.csv
 ```
 
-### Who runs what (2 scenarios each)
+### Running everything
 
-| person | scenarios | why |
+`scripts/run_all_cluster.sh` runs **all 8 scenarios × 3 seeds** (train + TabArena
+eval) in one GPU job — that's the whole experiment. The scenarios:
+
+| scenario | what it ramps | tests |
 |---|---|---|
-| **Parsa** | `baseline`, `curriculum_combined` | the control + the primary hypothesis |
-| **Emre**  | `curriculum_reverse`, `curriculum_noise` | sanity check (hard→easy) + noise ablation |
-| **Omid**  | `curriculum_features`, `curriculum_combined_slow` | feature ablation + gentler ramp |
+| `baseline` | nothing (full regime throughout) | control |
+| `curriculum_combined` | whole regime, easy→hard | primary hypothesis |
+| `curriculum_reverse` | whole regime, hard→easy | does order matter (sanity) |
+| `curriculum_features` | features only | compute knob (✅ saves compute) |
+| `curriculum_rows` | dataset size only | biggest compute knob (O(rows²)) |
+| `curriculum_noise` | noise only | non-compute knob (❌, control) |
+| `curriculum_classes` | class count only | non-compute knob (❌, control) |
+| `curriculum_combined_slow` | whole regime, gentler ramp | ramp-speed |
 
-Each person runs steps 2–3 for both their scenarios, then commits their
-`results/<name>/` folders (checkpoints are git-ignored — only the small
-`loss.csv`, `meta.json`, `tabarena_scores.json`, `*.png`, `config.yaml` go in).
+The headline is **compute efficiency**: `features`/`rows` shrink the data early so
+the same steps cost less; `noise`/`classes` don't. `compare_results.py` produces
+`comparison_efficiency.png` (ROC-AUC vs wall-clock) on top of the val-loss and
+ROC-AUC figures. Commit each `results/<name>_s<seed>/` folder (checkpoints are
+git-ignored — only the small `loss.csv`, `val.csv`, `meta.json`,
+`tabarena_scores.json`, `*.png`, `config.yaml` go in).
 
 ---
 

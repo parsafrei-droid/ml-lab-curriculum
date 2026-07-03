@@ -19,7 +19,7 @@
 
 set -e
 
-SCENARIOS="baseline curriculum_combined curriculum_reverse curriculum_noise curriculum_features curriculum_combined_slow"
+SCENARIOS="baseline curriculum_combined curriculum_reverse curriculum_noise curriculum_features curriculum_classes curriculum_rows curriculum_combined_slow"
 SEEDS="42 43 44"
 
 # bwUniCluster 3.0: load the same Python the venv was built against, plus CUDA.
