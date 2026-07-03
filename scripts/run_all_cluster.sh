@@ -19,10 +19,12 @@
 
 set -e
 
-SCENARIOS="baseline curriculum_combined curriculum_reverse curriculum_noise curriculum_features curriculum_classes curriculum_rows curriculum_combined_slow"
-SEEDS="42 43 44"
-# EPOCHS overrides the configs' 20 (=2000 steps). Phase 2 uses 50 (=5000 steps);
-# the ramp thresholds auto-scale. ~4 min/run x 24 runs at 2000, ~2.5x at 5000.
+# Both overridable from the submit line, e.g. for the 10k convergence subset:
+#   SCENARIOS="baseline curriculum_combined curriculum_reverse" EPOCHS=100 sbatch scripts/run_all_cluster.sh
+SCENARIOS="${SCENARIOS:-baseline curriculum_combined curriculum_reverse curriculum_noise curriculum_features curriculum_classes curriculum_rows curriculum_combined_slow}"
+SEEDS="${SEEDS:-42 43 44}"
+# EPOCHS overrides the configs' 20 (=2000 steps). 50 = 5k, 100 = 10k; the ramp
+# thresholds auto-scale. Results are tagged _e<EPOCHS> so budgets don't collide.
 EPOCHS=${EPOCHS:-50}
 
 # bwUniCluster 3.0: load the same Python the venv was built against, plus CUDA.
