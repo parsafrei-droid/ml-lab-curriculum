@@ -100,9 +100,10 @@ class FixedValidationCallback(Callback):
     TabArena (via eval_tabarena.py) is the independent ground truth.
     """
 
-    def __init__(self, out_dir, device, n=16):
+    def __init__(self, out_dir, device, num_outputs, n=16):
         self.out_dir = out_dir
-        self.batches = make_validation_batches(device, n=n)
+        # the val set can't have more classes than the model can predict
+        self.batches = make_validation_batches(device, n=n, max_classes=num_outputs)
         self.criterion = nn.CrossEntropyLoss()
         self.rows = []  # (epoch, val_loss, val_acc)
         self.final = None
@@ -154,6 +155,9 @@ def main():
     parser.add_argument("--config", required=True, help="path to a scenario YAML")
     parser.add_argument("--seed", type=int, default=None, help="override the config's seed")
     parser.add_argument("--name", type=str, default=None, help="override the run name (result folder)")
+    parser.add_argument("--epochs", type=int, default=None,
+                        help="override epochs; curriculum thresholds scale so the ramp keeps "
+                             "the same fraction of training (e.g. 20->50 for a 5k-step run)")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -162,6 +166,12 @@ def main():
         cfg["seed"] = args.seed
     if args.name is not None:
         cfg["name"] = args.name
+    # scaling the epochs also scales the ramp thresholds by the same factor, so a
+    # curriculum designed for 2000 steps ramps over the same *fraction* at 5000
+    if args.epochs is not None:
+        scale = args.epochs / cfg["epochs"]
+        cfg["schedule"] = {round(k * scale): v for k, v in cfg["schedule"].items()}
+        cfg["epochs"] = args.epochs
     name = cfg["name"]
     schedule = cfg["schedule"]
 
@@ -206,7 +216,7 @@ def main():
           f"| num_outputs={num_outputs} | device={device} ===")
 
     logger = LossLoggerCallback(out_dir, device)
-    validator = FixedValidationCallback(out_dir, device)
+    validator = FixedValidationCallback(out_dir, device, num_outputs)
     start = time.time()
     train(
         model=model,

@@ -54,7 +54,7 @@ def make_prior(max_features, max_classes, min_features=2, num_datapoints=200,
     return prior
 
 
-def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, regime=FULL_REGIME):
+def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, max_classes=10):
     """A FIXED set of validation datasets, identical for every training run.
 
     This is the whole point of comparable evaluation: training loss can't be
@@ -62,10 +62,14 @@ def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, regime
     a curriculum that finishes on easy data looks "better" for free. Instead we
     score every model on this one shared set each epoch.
 
-    We seed the RNG to a fixed value so all runs get the *same* validation data,
-    and restore the RNG afterwards so training reproducibility is untouched.
-    Returns a list of (x, y, train_test_split_index) with tensors on `device`.
+    max_classes must not exceed the model's number of outputs, or the labels
+    won't fit - so we cap it to num_outputs at the call site. We seed the RNG to
+    a fixed value so all runs get the *same* validation data, and restore it
+    afterwards so training reproducibility is untouched. Returns a list of
+    (x, y, train_test_split_index) with tensors on `device`.
     """
+    regime = dict(FULL_REGIME)
+    regime["max_classes"] = max_classes
     np_state, torch_state = np.random.get_state(), torch.get_rng_state()
     np.random.seed(seed)
     torch.manual_seed(seed)
