@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_classes_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 2000,
+  "elapsed_s": 94.3,
+  "sec_per_step": 0.0471,
+  "steps_per_sec": 21.21,
+  "peak_gpu_gb": 1.971,
+  "final_train_loss": 1.0133,
+  "final_val_loss": 1.1936,
+  "final_val_acc": 0.5353,
+  "num_outputs": 10
+}
