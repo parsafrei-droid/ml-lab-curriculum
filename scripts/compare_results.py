@@ -120,6 +120,34 @@ def plot_roc_auc(groups):
     plt.close()
 
 
+def plot_efficiency(groups):
+    """The compute-efficiency view: performance vs wall-clock. Up-and-left is
+    better (higher AUC for less compute) - that's the actual research question."""
+    xs, ys, xe, ye, labels = [], [], [], [], []
+    for base, rs in sorted(groups.items()):
+        t_m, t_s = mean_std([r["meta"].get("elapsed_s") for r in rs])
+        a_m, a_s = mean_std([r.get("roc_auc") for r in rs])
+        if t_m is None or a_m is None:
+            continue
+        xs.append(t_m)
+        ys.append(a_m)
+        xe.append(t_s)
+        ye.append(a_s)
+        labels.append(base)
+    if not xs:
+        return
+    plt.figure(figsize=(8, 6))
+    plt.errorbar(xs, ys, xerr=xe, yerr=ye, fmt="o", capsize=4, ms=8)
+    for x, y, lab in zip(xs, ys, labels):
+        plt.annotate(lab, (x, y), textcoords="offset points", xytext=(8, 4), fontsize=8)
+    plt.xlabel("wall-clock compute (s, mean over seeds)")
+    plt.ylabel("TabArena ROC-AUC")
+    plt.title("Compute efficiency: performance vs compute (up-and-left is better)")
+    plt.tight_layout()
+    plt.savefig(OUT / "comparison_efficiency.png", dpi=120)
+    plt.close()
+
+
 def rnd(x):
     return round(x, 4) if x is not None else ""
 
@@ -150,6 +178,7 @@ def main():
     print(f"found {len(runs)} run(s) in {len(groups)} scenario(s): {', '.join(sorted(groups))}")
     plot_val_loss(groups)
     plot_roc_auc(groups)
+    plot_efficiency(groups)
     write_summary(groups)
     print(f"\nsaved figures + summary -> {OUT}/")
 
