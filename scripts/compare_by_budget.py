@@ -58,7 +58,8 @@ def colour(base):
 
 def efficiency(runs, steps):
     g = defaultdict(lambda: defaultdict(list))
-    for r in (x for x in runs if x["steps"] == steps):
+    # this budget's runs, plus paper_small as a fixed reference in every figure
+    for r in (x for x in runs if x["steps"] == steps or x["base"] == "paper_small"):
         g[r["base"]]["t"].append(r["t"])
         g[r["base"]]["auc"].append(r["auc"])
     fig, ax = plt.subplots(figsize=(9, 6))
@@ -100,6 +101,10 @@ def convergence(runs):
     if not drawn:
         plt.close()
         return
+    # paper_small as a horizontal reference line, if it's been run
+    paper = [r["auc"] for r in runs if r["base"] == "paper_small" and r["auc"] is not None]
+    if paper:
+        ax.axhline(ms(paper)[0], ls="--", c="tab:purple", lw=1.4, label="paper_small (ref)")
     ax.axhline(0.5, ls=":", c="gray", lw=1)
     ax.set(xlabel="training steps", ylabel="TabArena ROC-AUC",
            title="Convergence: does the curriculum gap hold with more training?")
