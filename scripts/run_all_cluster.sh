@@ -14,13 +14,16 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=20G
-#SBATCH --time=03:00:00
+#SBATCH --time=10:00:00
 #SBATCH --output=slurm-%x-%j.out
 
 set -e
 
 SCENARIOS="baseline curriculum_combined curriculum_reverse curriculum_noise curriculum_features curriculum_classes curriculum_rows curriculum_combined_slow"
 SEEDS="42 43 44"
+# EPOCHS overrides the configs' 20 (=2000 steps). Phase 2 uses 50 (=5000 steps);
+# the ramp thresholds auto-scale. ~4 min/run x 24 runs at 2000, ~2.5x at 5000.
+EPOCHS=${EPOCHS:-50}
 
 # bwUniCluster 3.0: load the same Python the venv was built against, plus CUDA.
 source /usr/share/lmod/lmod/init/bash
@@ -34,12 +37,16 @@ source .venv/bin/activate
 set +e
 FAILED=""
 
+# tag non-default epoch counts so Phase-2 (5k) runs don't overwrite the Phase-1
+# (2k) results already committed - both stay side by side for comparison
+if [ "$EPOCHS" -eq 20 ]; then TAG=""; else TAG="_e${EPOCHS}"; fi
+
 for scenario in $SCENARIOS; do
   for seed in $SEEDS; do
-    name="${scenario}_s${seed}"
+    name="${scenario}${TAG}_s${seed}"
     echo ""
     echo "############################## $name ##############################"
-    if ! python scripts/run.py --config experiments/configs/$scenario.yaml --seed $seed --name $name; then
+    if ! python scripts/run.py --config experiments/configs/$scenario.yaml --seed $seed --name $name --epochs $EPOCHS; then
       echo "!!! TRAIN FAILED for $name (rc=$?) — skipping eval, continuing" >&2
       FAILED="$FAILED train:$name"
       continue
