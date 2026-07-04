@@ -1,0 +1,14 @@
+{
+  "name": "paper_small_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 940.7,
+  "sec_per_step": 0.3763,
+  "steps_per_sec": 2.66,
+  "peak_gpu_gb": 0.937,
+  "final_train_loss": 0.9316,
+  "final_val_loss": 0.5541,
+  "final_val_acc": 0.754,
+  "num_outputs": 10
+}
