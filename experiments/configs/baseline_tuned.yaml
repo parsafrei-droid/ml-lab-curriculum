@@ -1,7 +1,8 @@
-# BASELINE with the paper's training recipe: lr 3.9e-3 (we used 1e-4, ~40x too
-# low) and batch 32 (we used 1). Same model + prior + eval as our other runs -
-# only the tuning changes. This is the control for "is the curriculum win just
-# rescuing an under-tuned baseline?"
+# BASELINE with the paper's FULL recipe: their model (3-layer/96/4-head/192) AND
+# their training (lr 3.9e-3, batch 32). The lr is tuned to their small model, so
+# we must match the model too or training collapses (as it did when we kept our
+# bigger 6-layer model). This is the control for the paper-matched comparison:
+# same everything, no curriculum, vs curriculum_combined_tuned which adds the ramp.
 name: baseline_tuned
 seed: 42
 epochs: 20        # x100 = 2000 native steps; --epochs scales it (50=5k, 100=10k)
@@ -9,6 +10,12 @@ steps: 100
 batch_size: 32
 lr: 0.003892
 num_datapoints: 200
+
+# paper architecture (this is what was missing before)
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
 
 schedule:
   0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}
