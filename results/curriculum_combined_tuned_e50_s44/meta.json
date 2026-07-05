@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_tuned_e50_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 5000,
+  "elapsed_s": 142.9,
+  "sec_per_step": 0.0286,
+  "steps_per_sec": 34.98,
+  "peak_gpu_gb": 16.44,
+  "final_train_loss": 0.9105,
+  "final_val_loss": 1.0804,
+  "final_val_acc": 0.5933,
+  "num_outputs": 10
+}
