@@ -29,6 +29,10 @@ def load():
     for m in glob.glob(str(BASE) + "/results/*_s*/meta.json"):
         d = json.loads(open(m).read())
         base = re.sub(r"(_e\d+)?_s\d+$", "", d["name"])
+        # paper_small uses a different recipe (lr/batch/model) - it's a cited
+        # reference number, not comparable on these axes, so keep it off the plots
+        if base == "paper_small":
+            continue
         r = {"base": base, "steps": d.get("total_steps"), "t": d.get("elapsed_s")}
         sc = m.replace("meta.json", "tabarena_scores.json")
         try:
@@ -58,8 +62,7 @@ def colour(base):
 
 def efficiency(runs, steps):
     g = defaultdict(lambda: defaultdict(list))
-    # this budget's runs, plus paper_small as a fixed reference in every figure
-    for r in (x for x in runs if x["steps"] == steps or x["base"] == "paper_small"):
+    for r in (x for x in runs if x["steps"] == steps):
         g[r["base"]]["t"].append(r["t"])
         g[r["base"]]["auc"].append(r["auc"])
     fig, ax = plt.subplots(figsize=(9, 6))
@@ -101,10 +104,6 @@ def convergence(runs):
     if not drawn:
         plt.close()
         return
-    # paper_small as a horizontal reference line, if it's been run
-    paper = [r["auc"] for r in runs if r["base"] == "paper_small" and r["auc"] is not None]
-    if paper:
-        ax.axhline(ms(paper)[0], ls="--", c="tab:purple", lw=1.4, label="paper_small (ref)")
     ax.axhline(0.5, ls=":", c="gray", lw=1)
     ax.set(xlabel="training steps", ylabel="TabArena ROC-AUC",
            title="Convergence: does the curriculum gap hold with more training?")
