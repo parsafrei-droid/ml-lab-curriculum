@@ -1,0 +1,14 @@
+{
+  "name": "baseline_tuned_e25_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 76.9,
+  "sec_per_step": 0.0307,
+  "steps_per_sec": 32.52,
+  "peak_gpu_gb": 15.451,
+  "final_train_loss": 0.9174,
+  "final_val_loss": 0.5499,
+  "final_val_acc": 0.7494,
+  "num_outputs": 10
+}
