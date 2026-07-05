@@ -177,6 +177,8 @@ def main():
     parser.add_argument("--epochs", type=int, default=None,
                         help="override epochs; curriculum thresholds scale so the ramp keeps "
                              "the same fraction of training (e.g. 20->50 for a 5k-step run)")
+    parser.add_argument("--lr", type=float, default=None,
+                        help="override the config's learning rate (for an lr sweep on our model)")
     parser.add_argument("--resume", action="store_true",
                         help="resume from workdir/<name>/latest_checkpoint.pth if it exists "
                              "(model+optimizer+epoch), appending to loss.csv/val.csv")
@@ -192,6 +194,8 @@ def main():
         cfg["seed"] = args.seed
     if args.name is not None:
         cfg["name"] = args.name
+    if args.lr is not None:
+        cfg["lr"] = args.lr
     # scaling the epochs also scales the ramp thresholds by the same factor, so a
     # curriculum designed for 2000 steps ramps over the same *fraction* at 5000
     if args.epochs is not None:
