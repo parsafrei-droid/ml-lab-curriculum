@@ -49,14 +49,24 @@ class LossLoggerCallback(Callback):
     afterwards, via eval_tabarena.py.
     """
 
-    def __init__(self, out_dir, device):
+    def __init__(self, out_dir, device, resume=False):
         self.out_dir = out_dir
         self.device = device
         self.rows = []  # (epoch, loss)
         self.cum_time = 0.0
         self.peak_gpu_gb = 0.0
         self.csv_path = out_dir / "loss.csv"
-        self.csv_path.write_text("epoch,epoch_time_s,cum_time_s,loss,gpu_mem_gb\n")
+        # On resume, keep the rows/time already written by earlier chunks and
+        # append; only start a fresh file for a brand-new run.
+        if resume and self.csv_path.exists():
+            with self.csv_path.open() as f:
+                next(f, None)  # header
+                for line in f:
+                    e, _et, cum, loss, _gpu = line.strip().split(",")
+                    self.rows.append((int(e), float(loss)))
+                    self.cum_time = float(cum)
+        else:
+            self.csv_path.write_text("epoch,epoch_time_s,cum_time_s,loss,gpu_mem_gb\n")
 
     def _gpu_gb(self):
         # peak memory since the last reset, in GB (0 on CPU)
@@ -100,7 +110,7 @@ class FixedValidationCallback(Callback):
     TabArena (via eval_tabarena.py) is the independent ground truth.
     """
 
-    def __init__(self, out_dir, device, num_outputs, n=16):
+    def __init__(self, out_dir, device, num_outputs, n=16, resume=False):
         self.out_dir = out_dir
         # the val set can't have more classes than the model can predict
         self.batches = make_validation_batches(device, n=n, max_classes=num_outputs)
@@ -108,7 +118,16 @@ class FixedValidationCallback(Callback):
         self.rows = []  # (epoch, val_loss, val_acc)
         self.final = None
         self.csv_path = out_dir / "val.csv"
-        self.csv_path.write_text("epoch,val_loss,val_acc\n")
+        # On resume, keep earlier chunks' rows and append; else start fresh.
+        if resume and self.csv_path.exists():
+            with self.csv_path.open() as f:
+                next(f, None)  # header
+                for line in f:
+                    e, vl, va = line.strip().split(",")
+                    self.rows.append((int(e), float(vl), float(va)))
+                    self.final = (float(vl), float(va))
+        else:
+            self.csv_path.write_text("epoch,val_loss,val_acc\n")
 
     @torch.no_grad()
     def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
@@ -158,6 +177,13 @@ def main():
     parser.add_argument("--epochs", type=int, default=None,
                         help="override epochs; curriculum thresholds scale so the ramp keeps "
                              "the same fraction of training (e.g. 20->50 for a 5k-step run)")
+    parser.add_argument("--resume", action="store_true",
+                        help="resume from workdir/<name>/latest_checkpoint.pth if it exists "
+                             "(model+optimizer+epoch), appending to loss.csv/val.csv")
+    parser.add_argument("--stop-after-epoch", type=int, default=None,
+                        help="train only up to this epoch this run, then exit (for chunking a "
+                             "long run across several short SLURM jobs). meta.json is written "
+                             "only once the config's full epoch target is reached.")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -212,23 +238,55 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(args.config, out_dir / "config.yaml")
 
-    print(f"=== training '{name}' | {cfg['epochs']} epochs x {cfg['steps']} steps "
-          f"| num_outputs={num_outputs} | device={device} ===")
+    # --- optional resume, for chunking a long run across short SLURM jobs ---
+    # train() writes workdir/<name>/latest_checkpoint.pth every epoch and accepts
+    # a ckpt={model, optimizer, epoch} to resume from epoch+1. We reload it, put
+    # the weights into our model, and (crucially) fast-forward the curriculum's
+    # global_step so the difficulty ramp continues instead of restarting.
+    ckpt = None
+    ckpt_path = BASE / "workdir" / name / "latest_checkpoint.pth"
+    if args.resume and ckpt_path.exists():
+        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model"])
+        scheduler.global_step = ckpt["epoch"] * cfg["steps"]
+        # replay the schedule up to here so the prior's knobs match the step we
+        # resume at (step() only fires on stage *changes*, so set it explicitly)
+        scheduler.step(scheduler.global_step)
+        print(f"=== RESUMING '{name}' from epoch {ckpt['epoch']} "
+              f"(global_step={scheduler.global_step}) ===", flush=True)
 
-    logger = LossLoggerCallback(out_dir, device)
-    validator = FixedValidationCallback(out_dir, device, num_outputs)
+    # each chunk trains up to --stop-after-epoch (default = the full target)
+    target_epochs = cfg["epochs"]
+    this_run_epochs = args.stop_after_epoch if args.stop_after_epoch is not None else target_epochs
+    resume = ckpt is not None
+
+    print(f"=== training '{name}' | up to epoch {this_run_epochs}/{target_epochs} "
+          f"x {cfg['steps']} steps | num_outputs={num_outputs} | device={device} ===")
+
+    logger = LossLoggerCallback(out_dir, device, resume=resume)
+    validator = FixedValidationCallback(out_dir, device, num_outputs, resume=resume)
     start = time.time()
     train(
         model=model,
         prior=scheduler,
         criterion=nn.CrossEntropyLoss(),
-        epochs=cfg["epochs"],
+        epochs=this_run_epochs,
         lr=cfg.get("lr", 1e-4),
         device=device,
         callbacks=[logger, validator],
         run_name=name,
+        ckpt=ckpt,
     )
     elapsed = time.time() - start
+
+    # If this was an intermediate chunk (didn't reach the full target), stop here:
+    # the checkpoint is saved in workdir for the next chunk, but we don't write the
+    # final checkpoint.pth / meta.json yet.
+    last_epoch = logger.rows[-1][0] if logger.rows else 0
+    if last_epoch < target_epochs:
+        print(f"=== chunk done at epoch {last_epoch}/{target_epochs}; "
+              f"resume with --resume to continue ===", flush=True)
+        return
 
     # train() saves to "workdir/<name>/" relative to wherever it ran, so check a
     # few likely spots and copy the checkpoint next to our results.
