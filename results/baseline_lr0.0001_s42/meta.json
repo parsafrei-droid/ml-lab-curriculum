@@ -1,0 +1,14 @@
+{
+  "name": "baseline_lr0.0001_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 5000,
+  "elapsed_s": 258.3,
+  "sec_per_step": 0.0517,
+  "steps_per_sec": 19.36,
+  "peak_gpu_gb": 1.977,
+  "final_train_loss": 0.9902,
+  "final_val_loss": 1.1258,
+  "final_val_acc": 0.5354,
+  "num_outputs": 10
+}
