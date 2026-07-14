@@ -5,13 +5,12 @@
 # that don't save compute" side of the 2x2 (features/rows do, classes/noise don't).
 name: curriculum_classes
 seed: 42
-epochs: 20
-steps: 100
-batch_size: 1
+steps: 2000       # total training steps
+batch_size: 32
 lr: 1.0e-4
 num_datapoints: 200
 
 schedule:
-  0:    {min_features: 2, max_features: 60, max_classes: 2,  noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}
+  0:    {min_features: 2, max_features: 60, max_classes: 2,  noise_std: 0.3, num_layers: 6, hidden_dim: 128}
   700:  {max_classes: 5}
   1400: {max_classes: 10}

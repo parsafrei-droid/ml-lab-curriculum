@@ -22,7 +22,7 @@
 set -e
 LRS="${LRS:-0.0001 0.0003 0.001 0.003}"
 SCENARIOS="${SCENARIOS:-baseline curriculum_combined}"
-EPOCHS="${EPOCHS:-50}"      # 5000 steps
+STEPS="${STEPS:-5000}"
 SEEDS="${SEEDS:-42}"
 
 source /usr/share/lmod/lmod/init/bash
@@ -38,7 +38,7 @@ for lr in $LRS; do
       echo ""
       echo "############################## $name ##############################"
       python scripts/run.py --config experiments/configs/$scenario.yaml \
-        --lr $lr --name $name --seed $seed --epochs $EPOCHS || continue
+        --lr $lr --name $name --seed $seed --steps $STEPS || continue
       python scripts/eval_tabarena.py --checkpoint results/$name/checkpoint.pth \
         --tasks tabarena --max-n-samples 5000
     done

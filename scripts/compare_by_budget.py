@@ -1,6 +1,6 @@
 """Per-budget comparison figures + a convergence curve across training budgets.
 
-Runs are named <scenario>[_e<epochs>]_s<seed>. We read the real step count from
+Runs are named <scenario>[_e<steps>]_s<seed>. We read the real step count from
 each meta.json, so 2k / 5k / 10k / the paper's 2.5k all slot in automatically.
 
 Produces, in experiments/:

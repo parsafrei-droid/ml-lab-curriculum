@@ -42,12 +42,12 @@ def load_runs():
 
         val_csv = d / "val.csv"
         if val_csv.exists():
-            v_epochs, v_losses = [], []
+            v_steps, v_losses = [], []
             with val_csv.open() as f:
                 for row in csv.DictReader(f):
-                    v_epochs.append(int(row["epoch"]))
+                    v_steps.append(int(row["step"]))
                     v_losses.append(float(row["val_loss"]))
-            run["val_epochs"], run["val_losses"] = v_epochs, v_losses
+            run["val_steps"], run["val_losses"] = v_steps, v_losses
 
         scores_path = d / "tabarena_scores.json"
         if scores_path.exists():
@@ -86,9 +86,9 @@ def plot_val_loss(groups):
         curves = [r["val_losses"] for r in rs if r.get("val_losses")]
         length = min(len(c) for c in curves)
         mean_curve = [sum(c[i] for c in curves) / len(curves) for i in range(length)]
-        epochs = next(r["val_epochs"] for r in rs if r.get("val_epochs"))[:length]
-        plt.plot(epochs, mean_curve, marker="o", ms=3, label=base)
-    plt.xlabel("epoch")
+        steps = next(r["val_steps"] for r in rs if r.get("val_steps"))[:length]
+        plt.plot(steps, mean_curve, marker="o", ms=3, label=base)
+    plt.xlabel("training steps")
     plt.ylabel("validation loss (shared set, mean over seeds)")
     plt.title("Comparable validation loss by scenario")
     plt.legend(fontsize=8)

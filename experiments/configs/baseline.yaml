@@ -3,11 +3,10 @@
 # scenario ends at this same regime, so the only difference is the *order*.
 name: baseline
 seed: 42
-epochs: 20        # 20 x 100 = 2000 global steps  (bump epochs for the final run)
-steps: 100
-batch_size: 1
+steps: 2000       # total training steps (bump for the final run)
+batch_size: 32
 lr: 1.0e-4
 num_datapoints: 200
 
 schedule:
-  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}
+  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128}

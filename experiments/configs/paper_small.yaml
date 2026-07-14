@@ -9,8 +9,7 @@
 # reference, not a reproduction of their 0.68 binary number.
 name: paper_small
 seed: 42
-epochs: 25          # 2500 steps, as in the paper
-steps: 100
+steps: 2500         # as in the paper
 batch_size: 32
 lr: 0.003892
 num_datapoints: 150
