@@ -5,8 +5,7 @@
 # same everything, no curriculum, vs curriculum_combined_tuned which adds the ramp.
 name: baseline_tuned
 seed: 42
-epochs: 20        # x100 = 2000 native steps; --epochs scales it (50=5k, 100=10k)
-steps: 100
+steps: 2000       # total training steps; --steps scales it (5000=5k, 10000=10k)
 batch_size: 32
 lr: 0.003892
 num_datapoints: 200
@@ -18,4 +17,4 @@ hidden_size: 192
 layers: 3
 
 schedule:
-  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}
+  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128}

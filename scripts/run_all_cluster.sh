@@ -20,12 +20,12 @@
 set -e
 
 # Both overridable from the submit line, e.g. for the 10k convergence subset:
-#   SCENARIOS="baseline curriculum_combined curriculum_reverse" EPOCHS=100 sbatch scripts/run_all_cluster.sh
+#   SCENARIOS="baseline curriculum_combined curriculum_reverse" STEPS=10000 sbatch scripts/run_all_cluster.sh
 SCENARIOS="${SCENARIOS:-baseline curriculum_combined curriculum_reverse curriculum_noise curriculum_features curriculum_classes curriculum_rows curriculum_combined_slow}"
 SEEDS="${SEEDS:-42 43 44}"
-# EPOCHS overrides the configs' 20 (=2000 steps). 50 = 5k, 100 = 10k; the ramp
-# thresholds auto-scale. Results are tagged _e<EPOCHS> so budgets don't collide.
-EPOCHS=${EPOCHS:-50}
+# STEPS overrides the configs' 2000; the ramp thresholds auto-scale. Results are
+# tagged _e<STEPS> so budgets don't collide with the default.
+STEPS=${STEPS:-5000}
 
 # bwUniCluster 3.0: load the same Python the venv was built against, plus CUDA.
 source /usr/share/lmod/lmod/init/bash
@@ -39,16 +39,16 @@ source .venv/bin/activate
 set +e
 FAILED=""
 
-# tag non-default epoch counts so Phase-2 (5k) runs don't overwrite the Phase-1
+# tag non-default step counts so Phase-2 (5k) runs don't overwrite the Phase-1
 # (2k) results already committed - both stay side by side for comparison
-if [ "$EPOCHS" -eq 20 ]; then TAG=""; else TAG="_e${EPOCHS}"; fi
+if [ "$STEPS" -eq 2000 ]; then TAG=""; else TAG="_e${STEPS}"; fi
 
 for scenario in $SCENARIOS; do
   for seed in $SEEDS; do
     name="${scenario}${TAG}_s${seed}"
     echo ""
     echo "############################## $name ##############################"
-    if ! python scripts/run.py --config experiments/configs/$scenario.yaml --seed $seed --name $name --epochs $EPOCHS; then
+    if ! python scripts/run.py --config experiments/configs/$scenario.yaml --seed $seed --name $name --steps $STEPS; then
       echo "!!! TRAIN FAILED for $name (rc=$?) — skipping eval, continuing" >&2
       FAILED="$FAILED train:$name"
       continue

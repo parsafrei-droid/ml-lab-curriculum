@@ -3,42 +3,42 @@
 # sequence of short jobs (train chunks + a final eval), so a long batch-32 run
 # completes on the 30-min short partition instead of waiting for gpu_h100.
 #
-#   scripts/submit_chunked.sh "<scenarios>" "<seeds>" <epochs> [epochs_per_chunk]
+#   scripts/submit_chunked.sh "<scenarios>" "<seeds>" <steps> [steps_per_chunk]
 #
 # e.g. the tuned 5k smoke (1 seed):
-#   scripts/submit_chunked.sh "baseline_tuned curriculum_combined_tuned" "42" 50
+#   scripts/submit_chunked.sh "baseline_tuned curriculum_combined_tuned" "42" 5000
 #
-# Result folders are tagged _e<epochs> (matching run_all_cluster.sh), e.g.
-# baseline_tuned_e50_s42. Verified numerically equivalent to a single-shot run
+# Result folders are tagged _e<steps> (matching run_all_cluster.sh), e.g.
+# baseline_tuned_e5000_s42. Verified numerically equivalent to a single-shot run
 # (see the resume path in scripts/run.py).
 
 set -e
 SCENARIOS="$1"
 SEEDS="$2"
-EPOCHS="$3"
-PER_CHUNK="${4:-12}"          # ~12 epochs ~= 19 min at batch-32 (safe under 30-min cap)
+STEPS="$3"
+PER_CHUNK="${4:-1200}"        # ~1200 steps ~= 19 min at batch-32 (safe under 30-min cap)
 
-if [ "$EPOCHS" -eq 20 ]; then TAG=""; else TAG="_e${EPOCHS}"; fi
+if [ "$STEPS" -eq 2000 ]; then TAG=""; else TAG="_e${STEPS}"; fi
 
 for scenario in $SCENARIOS; do
   for seed in $SEEDS; do
     name="${scenario}${TAG}_s${seed}"
     config="experiments/configs/${scenario}.yaml"
-    echo "### $name : chaining chunks of $PER_CHUNK epochs up to $EPOCHS ###"
+    echo "### $name : chaining chunks of $PER_CHUNK steps up to $STEPS ###"
 
     dep=""            # dependency on the previous chunk
     stop=0
     first=1
-    while [ "$stop" -lt "$EPOCHS" ]; do
+    while [ "$stop" -lt "$STEPS" ]; do
       stop=$(( stop + PER_CHUNK ))
-      [ "$stop" -gt "$EPOCHS" ] && stop=$EPOCHS
+      [ "$stop" -gt "$STEPS" ] && stop=$STEPS
       if [ "$first" -eq 1 ]; then
         resume=""; first=0
       else
         resume="resume"
       fi
       jid=$(sbatch $dep --job-name="c_${name}" \
-            scripts/run_chunk.sh "$config" "$name" "$seed" "$EPOCHS" "$stop" "$resume" \
+            scripts/run_chunk.sh "$config" "$name" "$seed" "$STEPS" "$stop" "$resume" \
             | awk '{print $NF}')
       echo "   chunk ->$stop : job $jid ${dep:+(after ${dep##*:})}"
       dep="--dependency=afterok:$jid"

@@ -11,7 +11,7 @@ the upstream training code at all.
 
 Outputs land in results/<name>/ :
     checkpoint.pth   - the trained model (architecture + weights)
-    loss.csv         - loss per epoch
+    loss.csv         - loss per step (logged every CHECKPOINT_STEPS steps)
     loss_curve.png   - that same loss, plotted
     meta.json        - seed, total steps, wall-clock time
 """
@@ -40,19 +40,27 @@ from tfmplayground.models.nanotabpfn import NanoTabPFNModel
 from tfmplayground.train import train
 from tfmplayground.utils import get_default_device, set_randomness_seed
 
+# TFM-Playground's train() loop is written in terms of "epochs" (one checkpoint
+# + callback firing per pass over the prior). Synthetic data has no notion of a
+# "full pass", so everywhere outside of this one constant we think and log in
+# terms of steps only: configs specify a single total `steps`, and this is just
+# the (internal, fixed) number of steps between two checkpoints/log rows. It is
+# not a tunable per-scenario knob - it's the unit train() forces on us.
+CHECKPOINT_STEPS = 100
+
 
 class LossLoggerCallback(Callback):
-    """Writes loss per epoch to a CSV and draws the loss curve at the end.
+    """Writes loss per step to a CSV and draws the loss curve at the end.
 
     We deliberately keep TabArena out of training - evaluating on ~300 real
-    datasets every epoch would dwarf the training time. Evaluation happens once,
-    afterwards, via eval_tabarena.py.
+    datasets every checkpoint would dwarf the training time. Evaluation happens
+    once, afterwards, via eval_tabarena.py.
     """
 
     def __init__(self, out_dir, device, resume=False):
         self.out_dir = out_dir
         self.device = device
-        self.rows = []  # (epoch, loss)
+        self.rows = []  # (step, loss)
         self.cum_time = 0.0
         self.peak_gpu_gb = 0.0
         self.csv_path = out_dir / "loss.csv"
@@ -62,11 +70,11 @@ class LossLoggerCallback(Callback):
             with self.csv_path.open() as f:
                 next(f, None)  # header
                 for line in f:
-                    e, _et, cum, loss, _gpu = line.strip().split(",")
-                    self.rows.append((int(e), float(loss)))
+                    s, _it, cum, loss, _gpu = line.strip().split(",")
+                    self.rows.append((int(s), float(loss)))
                     self.cum_time = float(cum)
         else:
-            self.csv_path.write_text("epoch,epoch_time_s,cum_time_s,loss,gpu_mem_gb\n")
+            self.csv_path.write_text("step,interval_time_s,cum_time_s,loss,gpu_mem_gb\n")
 
     def _gpu_gb(self):
         # peak memory since the last reset, in GB (0 on CPU)
@@ -77,23 +85,28 @@ class LossLoggerCallback(Callback):
         return 0.0
 
     def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
+        # train() calls this once per CHECKPOINT_STEPS-sized pass over the prior;
+        # `epoch` is just that pass's 1-based index, so the real x-axis value -
+        # the one that's comparable across configs with different batch sizes -
+        # is the cumulative step count.
+        step = epoch * CHECKPOINT_STEPS
         self.cum_time += epoch_time
         gpu = self._gpu_gb()
         self.peak_gpu_gb = max(self.peak_gpu_gb, gpu)
-        self.rows.append((epoch, loss))
+        self.rows.append((step, loss))
         with self.csv_path.open("a") as f:
-            f.write(f"{epoch},{epoch_time:.3f},{self.cum_time:.3f},{loss:.6f},{gpu:.3f}\n")
-        print(f"epoch {epoch:4d} | time {epoch_time:6.2f}s | cum {self.cum_time:7.1f}s "
+            f.write(f"{step},{epoch_time:.3f},{self.cum_time:.3f},{loss:.6f},{gpu:.3f}\n")
+        print(f"step {step:6d} | interval {epoch_time:6.2f}s | cum {self.cum_time:7.1f}s "
               f"| loss {loss:.4f} | gpu {gpu:.2f}GB", flush=True)
 
     def close(self):
         if not self.rows:
             return
-        epochs = [r[0] for r in self.rows]
+        steps = [r[0] for r in self.rows]
         losses = [r[1] for r in self.rows]
         plt.figure(figsize=(6, 4))
-        plt.plot(epochs, losses, marker="o", ms=3)
-        plt.xlabel("epoch")
+        plt.plot(steps, losses, marker="o", ms=3)
+        plt.xlabel("training steps")
         plt.ylabel("mean loss")
         plt.title(self.out_dir.name)
         plt.tight_layout()
@@ -102,7 +115,7 @@ class LossLoggerCallback(Callback):
 
 
 class FixedValidationCallback(Callback):
-    """Scores the model each epoch on ONE shared validation set.
+    """Scores the model each checkpoint on ONE shared validation set.
 
     Every scenario is judged on the same fixed synthetic datasets, so val_loss is
     directly comparable across runs - unlike training loss, which just reflects
@@ -115,7 +128,7 @@ class FixedValidationCallback(Callback):
         # the val set can't have more classes than the model can predict
         self.batches = make_validation_batches(device, n=n, max_classes=num_outputs)
         self.criterion = nn.CrossEntropyLoss()
-        self.rows = []  # (epoch, val_loss, val_acc)
+        self.rows = []  # (step, val_loss, val_acc)
         self.final = None
         self.csv_path = out_dir / "val.csv"
         # On resume, keep earlier chunks' rows and append; else start fresh.
@@ -123,16 +136,17 @@ class FixedValidationCallback(Callback):
             with self.csv_path.open() as f:
                 next(f, None)  # header
                 for line in f:
-                    e, vl, va = line.strip().split(",")
-                    self.rows.append((int(e), float(vl), float(va)))
+                    s, vl, va = line.strip().split(",")
+                    self.rows.append((int(s), float(vl), float(va)))
                     self.final = (float(vl), float(va))
         else:
-            self.csv_path.write_text("epoch,val_loss,val_acc\n")
+            self.csv_path.write_text("step,val_loss,val_acc\n")
 
     @torch.no_grad()
     def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
         # train() has already put the model (and schedule-free optimizer) in eval
         # mode before calling us, so the weights here are the right ones to score.
+        step = epoch * CHECKPOINT_STEPS
         n_out = model.num_outputs
         losses, accs = [], []
         for x, y, split in self.batches:
@@ -141,19 +155,19 @@ class FixedValidationCallback(Callback):
             losses.append(self.criterion(out, tgt).item())
             accs.append((out.argmax(-1) == tgt).float().mean().item())
         vl, va = float(sum(losses) / len(losses)), float(sum(accs) / len(accs))
-        self.rows.append((epoch, vl, va))
+        self.rows.append((step, vl, va))
         self.final = (vl, va)
         with self.csv_path.open("a") as f:
-            f.write(f"{epoch},{vl:.6f},{va:.4f}\n")
+            f.write(f"{step},{vl:.6f},{va:.4f}\n")
         print(f"            | val_loss {vl:.4f} | val_acc {va:.4f}", flush=True)
 
     def close(self):
         if not self.rows:
             return
-        epochs = [r[0] for r in self.rows]
+        steps = [r[0] for r in self.rows]
         plt.figure(figsize=(6, 4))
-        plt.plot(epochs, [r[1] for r in self.rows], marker="o", ms=3)
-        plt.xlabel("epoch")
+        plt.plot(steps, [r[1] for r in self.rows], marker="o", ms=3)
+        plt.xlabel("training steps")
         plt.ylabel("validation loss (shared set)")
         plt.title(self.out_dir.name)
         plt.tight_layout()
@@ -174,18 +188,20 @@ def main():
     parser.add_argument("--config", required=True, help="path to a scenario YAML")
     parser.add_argument("--seed", type=int, default=None, help="override the config's seed")
     parser.add_argument("--name", type=str, default=None, help="override the run name (result folder)")
-    parser.add_argument("--epochs", type=int, default=None,
-                        help="override epochs; curriculum thresholds scale so the ramp keeps "
-                             "the same fraction of training (e.g. 20->50 for a 5k-step run)")
+    parser.add_argument("--steps", type=int, default=None,
+                        help="override the config's total training steps; curriculum thresholds "
+                             "scale so the ramp keeps the same fraction of training (e.g. "
+                             "2000->5000 rescales 700/1400 proportionally)")
     parser.add_argument("--lr", type=float, default=None,
                         help="override the config's learning rate (for an lr sweep on our model)")
     parser.add_argument("--resume", action="store_true",
                         help="resume from workdir/<name>/latest_checkpoint.pth if it exists "
-                             "(model+optimizer+epoch), appending to loss.csv/val.csv")
-    parser.add_argument("--stop-after-epoch", type=int, default=None,
-                        help="train only up to this epoch this run, then exit (for chunking a "
-                             "long run across several short SLURM jobs). meta.json is written "
-                             "only once the config's full epoch target is reached.")
+                             "(model+optimizer+step), appending to loss.csv/val.csv")
+    parser.add_argument("--stop-after-step", type=int, default=None,
+                        help="train only up to this many steps this run, then exit (for chunking "
+                             "a long run across several short SLURM jobs). Must be a multiple of "
+                             f"the checkpoint granularity ({CHECKPOINT_STEPS}). meta.json is "
+                             "written only once the config's full step target is reached.")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -196,14 +212,19 @@ def main():
         cfg["name"] = args.name
     if args.lr is not None:
         cfg["lr"] = args.lr
-    # scaling the epochs also scales the ramp thresholds by the same factor, so a
-    # curriculum designed for 2000 steps ramps over the same *fraction* at 5000
-    if args.epochs is not None:
-        scale = args.epochs / cfg["epochs"]
+    # scaling the total steps also scales the ramp thresholds by the same factor,
+    # so a curriculum designed for 2000 steps ramps over the same *fraction* at 5000
+    if args.steps is not None:
+        scale = args.steps / cfg["steps"]
         cfg["schedule"] = {round(k * scale): v for k, v in cfg["schedule"].items()}
-        cfg["epochs"] = args.epochs
+        cfg["steps"] = args.steps
     name = cfg["name"]
     schedule = cfg["schedule"]
+    total_steps = cfg["steps"]
+    assert total_steps % CHECKPOINT_STEPS == 0, (
+        f"steps ({total_steps}) must be a multiple of the checkpoint granularity "
+        f"({CHECKPOINT_STEPS})"
+    )
 
     set_randomness_seed(cfg.get("seed", 42))
     device = get_default_device()
@@ -223,7 +244,7 @@ def main():
         max_classes=num_outputs,
         min_features=external.get("min_features", 2),
         num_datapoints=cfg.get("num_datapoints", 200),
-        num_steps=cfg["steps"],
+        num_steps=CHECKPOINT_STEPS,
         batch_size=cfg.get("batch_size", 1),
         device=device,
         knobs=internal or None,
@@ -243,29 +264,38 @@ def main():
     shutil.copy(args.config, out_dir / "config.yaml")
 
     # --- optional resume, for chunking a long run across short SLURM jobs ---
-    # train() writes workdir/<name>/latest_checkpoint.pth every epoch and accepts
-    # a ckpt={model, optimizer, epoch} to resume from epoch+1. We reload it, put
-    # the weights into our model, and (crucially) fast-forward the curriculum's
-    # global_step so the difficulty ramp continues instead of restarting.
+    # train() writes workdir/<name>/latest_checkpoint.pth every CHECKPOINT_STEPS
+    # and accepts a ckpt={model, optimizer, epoch} to resume from epoch+1 (that
+    # "epoch" is train()'s own internal pass counter, not a unit we use anywhere
+    # else). We reload it, put the weights into our model, and (crucially)
+    # fast-forward the curriculum's global_step so the difficulty ramp continues
+    # instead of restarting.
     ckpt = None
     ckpt_path = BASE / "workdir" / name / "latest_checkpoint.pth"
     if args.resume and ckpt_path.exists():
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
-        scheduler.global_step = ckpt["epoch"] * cfg["steps"]
+        scheduler.global_step = ckpt["epoch"] * CHECKPOINT_STEPS
         # replay the schedule up to here so the prior's knobs match the step we
         # resume at (step() only fires on stage *changes*, so set it explicitly)
         scheduler.step(scheduler.global_step)
-        print(f"=== RESUMING '{name}' from epoch {ckpt['epoch']} "
-              f"(global_step={scheduler.global_step}) ===", flush=True)
+        print(f"=== RESUMING '{name}' from step {scheduler.global_step} ===", flush=True)
 
-    # each chunk trains up to --stop-after-epoch (default = the full target)
-    target_epochs = cfg["epochs"]
-    this_run_epochs = args.stop_after_epoch if args.stop_after_epoch is not None else target_epochs
+    # each chunk trains up to --stop-after-step (default = the full target),
+    # in units of train()'s internal checkpoint passes
+    target_epochs = total_steps // CHECKPOINT_STEPS
+    if args.stop_after_step is not None:
+        assert args.stop_after_step % CHECKPOINT_STEPS == 0, (
+            f"--stop-after-step ({args.stop_after_step}) must be a multiple of "
+            f"the checkpoint granularity ({CHECKPOINT_STEPS})"
+        )
+        this_run_epochs = args.stop_after_step // CHECKPOINT_STEPS
+    else:
+        this_run_epochs = target_epochs
     resume = ckpt is not None
 
-    print(f"=== training '{name}' | up to epoch {this_run_epochs}/{target_epochs} "
-          f"x {cfg['steps']} steps | num_outputs={num_outputs} | device={device} ===")
+    print(f"=== training '{name}' | up to step {this_run_epochs * CHECKPOINT_STEPS}/{total_steps} "
+          f"| num_outputs={num_outputs} | device={device} ===")
 
     logger = LossLoggerCallback(out_dir, device, resume=resume)
     validator = FixedValidationCallback(out_dir, device, num_outputs, resume=resume)
@@ -286,9 +316,9 @@ def main():
     # If this was an intermediate chunk (didn't reach the full target), stop here:
     # the checkpoint is saved in workdir for the next chunk, but we don't write the
     # final checkpoint.pth / meta.json yet.
-    last_epoch = logger.rows[-1][0] if logger.rows else 0
-    if last_epoch < target_epochs:
-        print(f"=== chunk done at epoch {last_epoch}/{target_epochs}; "
+    last_step = logger.rows[-1][0] if logger.rows else 0
+    if last_step < total_steps:
+        print(f"=== chunk done at step {last_step}/{total_steps}; "
               f"resume with --resume to continue ===", flush=True)
         return
 
@@ -304,7 +334,6 @@ def main():
     else:
         print("warning: could not find the saved checkpoint to copy", flush=True)
 
-    total_steps = cfg["epochs"] * cfg["steps"]
     final_loss = logger.rows[-1][1] if logger.rows else None
     meta = {
         "name": name,

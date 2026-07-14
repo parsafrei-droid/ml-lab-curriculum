@@ -67,8 +67,8 @@ class CurriculumScheduler:
         # keep thresholds sorted so "latest stage at or below the step" is easy to find
         self.schedule = dict(sorted(schedule.items()))
         self.current_stage = None
-        # counts how many batches we've yielded over the whole run (across epochs).
-        # this is exactly the global step the schedule is keyed on.
+        # counts how many batches we've yielded over the whole run. this is
+        # exactly the global step the schedule is keyed on.
         self.global_step = 0
 
     def step(self, global_step):

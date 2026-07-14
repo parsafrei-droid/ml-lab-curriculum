@@ -60,7 +60,7 @@ def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, max_cl
     This is the whole point of comparable evaluation: training loss can't be
     compared across scenarios because each ends on different-difficulty data, so
     a curriculum that finishes on easy data looks "better" for free. Instead we
-    score every model on this one shared set each epoch.
+    score every model on this one shared set every logging step.
 
     max_classes must not exceed the model's number of outputs, or the labels
     won't fit - so we cap it to num_outputs at the call site. We seed the RNG to

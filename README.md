@@ -119,8 +119,8 @@ git-ignored — only the small `loss.csv`, `val.csv`, `meta.json`,
 | file | what |
 |---|---|
 | `checkpoint.pth` | trained model (git-ignored, stays local — 44 MB) |
-| `loss.csv` | per epoch training loss (NOT comparable across scenarios — see below) |
-| `val.csv` | per epoch **val_loss, val_acc on a shared fixed set** — the comparable metric |
+| `loss.csv` | training loss, logged every 100 steps (NOT comparable across scenarios — see below) |
+| `val.csv` | **val_loss, val_acc on a shared fixed set**, logged every 100 steps — the comparable metric |
 | `loss_curve.png` / `val_loss_curve.png` | those curves, plotted |
 | `meta.json` | seed, total_steps, **elapsed_s, sec_per_step, peak_gpu_gb, final_val_loss, final_val_acc** |
 | `tabarena_scores.json` | per-dataset + mean ROC-AUC on TabArena |
@@ -134,7 +134,7 @@ compute" fairly, not just final accuracy — that's the actual research question
 **Do not compare `loss.csv` (training loss) across scenarios.** Each scenario
 ends on different-difficulty data, so a run that finishes on easy data has a low
 final train loss *for free* — it hasn't learned more, it's just being tested on
-easier batches. Every scenario is instead scored each epoch on **one shared,
+easier batches. Every scenario is instead scored every 100 steps on **one shared,
 fixed validation set** (`val.csv`), which is identical for all runs. Compare
 **`val_loss` / `val_acc`** (comparable) and **TabArena ROC-AUC** (ground truth).
 
@@ -162,9 +162,13 @@ order matter (reverse), (4) do single-knob curricula help (ablations).*
 
 ## Notes
 
-- Configs are set to **2000 steps** (20 epochs × 100) for a first comparison.
-  For the final runs bump `epochs` (e.g. 50 → 5000 steps). Thresholds in the
-  schedule are absolute global steps — scale them if you change the totals.
+- Configs are set to **2000 steps** for a first comparison. For the final runs
+  bump `steps` in the config (or pass `--steps` on the command line, e.g. 5000);
+  thresholds in the schedule are absolute global steps and `--steps` rescales
+  them automatically so the ramp keeps the same fraction of training.
+- Training is defined purely in **steps**, not epochs — synthetic data has no
+  "full pass" to count epochs over. `loss.csv`/`val.csv` are indexed by step,
+  which stays comparable across configs even when `batch_size` differs.
 - Laptops (CPU) are fine for the explore step and smoke tests; do the real
   training on GPU. On CPU a hard step is ~2–3 s and big datasets can crash.
 - `noise_std` etc. are *ranges* the prior samples from — the scheduler sets the
