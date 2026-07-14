@@ -11,6 +11,10 @@ build/
 TFM-Playground/
 tabicl/
 
+# Local setup artifacts — not committed
+setup.ps1
+requirements.txt
+
 # Training checkpoints land here (relative to where train() runs)
 workdir/
 
