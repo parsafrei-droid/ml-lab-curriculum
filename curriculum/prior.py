@@ -8,6 +8,7 @@ sample_dataset() pulls one (X, y) out as plain numpy - all the plotting and
 difficulty code wants.
 """
 
+import random
 from copy import deepcopy
 
 import numpy as np
@@ -54,7 +55,7 @@ def make_prior(max_features, max_classes, min_features=2, num_datapoints=200,
     return prior
 
 
-def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, max_classes=10):
+def make_validation_batches(device, n=256, num_datapoints=200, seed=12345, max_classes=10):
     """A FIXED set of validation datasets, identical for every training run.
 
     This is the whole point of comparable evaluation: training loss can't be
@@ -67,12 +68,23 @@ def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, max_cl
     a fixed value so all runs get the *same* validation data, and restore it
     afterwards so training reproducibility is untouched. Returns a list of
     (x, y, train_test_split_index) with tensors on `device`.
+
+    Seeding np.random and torch alone is NOT enough: TabICL's SCM generators
+    (_mlp_scm, _tree_scm, _reg2cls, _utils) also draw structural choices - block
+    counts, output-column windows, class-binning thresholds, noise family - from
+    the stdlib `random` module, which is a separate global RNG. Without seeding
+    it too, "the fixed validation set" silently depends on the caller's own
+    `random` state (in practice: the run's --seed, via set_randomness_seed),
+    so different seeds/runs of the same scenario were scored on different
+    data, defeating the whole point of a shared yardstick.
     """
     regime = dict(FULL_REGIME)
     regime["max_classes"] = max_classes
     np_state, torch_state = np.random.get_state(), torch.get_rng_state()
+    py_state = random.getstate()
     np.random.seed(seed)
     torch.manual_seed(seed)
+    random.seed(seed)
     try:
         prior = make_prior(
             max_features=regime["max_features"], max_classes=regime["max_classes"],
@@ -86,6 +98,7 @@ def make_validation_batches(device, n=16, num_datapoints=200, seed=12345, max_cl
     finally:
         np.random.set_state(np_state)
         torch.set_rng_state(torch_state)
+        random.setstate(py_state)
     return batches
 
 
