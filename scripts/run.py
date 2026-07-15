@@ -281,20 +281,21 @@ def main():
         scheduler.step(scheduler.global_step)
         print(f"=== RESUMING '{name}' from step {scheduler.global_step} ===", flush=True)
 
-    # each chunk trains up to --stop-after-step (default = the full target),
-    # in units of train()'s internal checkpoint passes
-    target_epochs = total_steps // CHECKPOINT_STEPS
+    # each chunk trains up to --stop-after-step (default = the full target), in
+    # units of CHECKPOINT_STEPS-sized checkpoint intervals - the only unit
+    # train()'s own `epochs=` argument understands
+    target_checkpoints = total_steps // CHECKPOINT_STEPS
     if args.stop_after_step is not None:
         assert args.stop_after_step % CHECKPOINT_STEPS == 0, (
             f"--stop-after-step ({args.stop_after_step}) must be a multiple of "
             f"the checkpoint granularity ({CHECKPOINT_STEPS})"
         )
-        this_run_epochs = args.stop_after_step // CHECKPOINT_STEPS
+        this_run_checkpoints = args.stop_after_step // CHECKPOINT_STEPS
     else:
-        this_run_epochs = target_epochs
+        this_run_checkpoints = target_checkpoints
     resume = ckpt is not None
 
-    print(f"=== training '{name}' | up to step {this_run_epochs * CHECKPOINT_STEPS}/{total_steps} "
+    print(f"=== training '{name}' | up to step {this_run_checkpoints * CHECKPOINT_STEPS}/{total_steps} "
           f"| num_outputs={num_outputs} | device={device} ===")
 
     logger = LossLoggerCallback(out_dir, device, resume=resume)
@@ -304,7 +305,7 @@ def main():
         model=model,
         prior=scheduler,
         criterion=nn.CrossEntropyLoss(),
-        epochs=this_run_epochs,
+        epochs=this_run_checkpoints,
         lr=cfg.get("lr", 1e-4),
         device=device,
         callbacks=[logger, validator],

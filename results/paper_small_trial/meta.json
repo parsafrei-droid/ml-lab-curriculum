@@ -1,0 +1,14 @@
+{
+  "name": "paper_small_trial",
+  "seed": 42,
+  "device": "cpu",
+  "total_steps": 2500,
+  "elapsed_s": 2225.9,
+  "sec_per_step": 0.8904,
+  "steps_per_sec": 1.12,
+  "peak_gpu_gb": 0.0,
+  "final_train_loss": 0.9372,
+  "final_val_loss": 0.9922,
+  "final_val_acc": 0.5404,
+  "num_outputs": 10
+}
