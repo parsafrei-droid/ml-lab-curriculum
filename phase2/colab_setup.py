@@ -43,6 +43,32 @@ def clone_deps():
         sh(f"git -C {d} checkout {commit}")
 
 
+# Local patches that exist in our working copy but are NOT committed upstream, and
+# must be reapplied on a fresh clone. Each: (file, old_line, new_line).
+# - tabicl.py: TFM-Playground@98e33be imports `from tabicl.prior.dataset import
+#   PriorDataset`, but the pinned tabicl (8f665ed) exposes PriorDataset only from
+#   `tabicl.prior`. Without this, the very first prior import fails.
+PATCHES = [
+    (REPO / "TFM-Playground" / "tfmplayground" / "external_priors" / "tabicl.py",
+     "from tabicl.prior.dataset import PriorDataset as TabICLPriorDataset",
+     "from tabicl.prior import PriorDataset as TabICLPriorDataset"),
+]
+
+
+def patch_deps():
+    for path, old, new in PATCHES:
+        text = path.read_text()
+        if new in text:
+            print(f"patch already applied: {path.name}")
+            continue
+        if old not in text:
+            raise RuntimeError(
+                f"PATCH FAILED: expected line not found in {path}:\n  {old}\n"
+                f"(the pinned commit may have changed — re-check the pin)")
+        path.write_text(text.replace(old, new))
+        print(f"patched {path.name}: '{old}' -> '{new}'")
+
+
 def install():
     # openml is needed for the TabArena evaluation step (evaluation.py downloads the
     # OpenML datasets). The rest are the training-chain deps.
@@ -115,6 +141,7 @@ def self_check():
 
 if __name__ == "__main__":
     clone_deps()
+    patch_deps()
     install()
     write_stubs()
     self_check()
