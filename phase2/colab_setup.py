@@ -44,8 +44,10 @@ def clone_deps():
 
 
 def install():
+    # openml is needed for the TabArena evaluation step (evaluation.py downloads the
+    # OpenML datasets). The rest are the training-chain deps.
     sh(f"{sys.executable} -m pip -q install schedulefree einops huggingface-hub "
-       f"'scikit-learn>=1.5' pandas requests h5py")
+       f"'scikit-learn>=1.5' pandas requests h5py openml")
     # --no-deps so neither package drags torch to a different version than Colab's
     sh(f"{sys.executable} -m pip -q install --no-deps -e {REPO}/tabicl")
     sh(f"{sys.executable} -m pip -q install --no-deps -e {REPO}/TFM-Playground")
@@ -103,6 +105,10 @@ def self_check():
     from tfmplayground.external_priors import TabICLPriorDataLoader  # noqa: F401
     from curriculum.prior import make_prior  # noqa: F401  <- the real run.py entrypoint
     from curriculum.scheduler import CurriculumScheduler  # noqa: F401
+    # also import the EVAL chain, so setup fails here (not after a long train) if the
+    # TabArena eval deps (openml, etc.) are missing:
+    from tfmplayground.evaluation import TABARENA_TASKS, get_openml_predictions  # noqa: F401
+    from tfmplayground.interface import NanoTabPFNClassifier  # noqa: F401
     if not torch.cuda.is_available():
         print("WARNING: no CUDA — set Runtime > Change runtime type > T4 GPU.")
 
