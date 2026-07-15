@@ -1,0 +1,30 @@
+# PHASE 2 CURRICULUM — ramp ONLY max_features low -> high (4 -> 20 -> 60).
+# Every OTHER knob is pinned at the full/hard regime from step 0 and never moves,
+# so a difference vs baseline_features is ATTRIBUTABLE to the feature ramp alone.
+# Same paper-tuned recipe, seeds, steps, lr, and model as the baseline arm — the
+# ONLY difference is that max_features starts small and grows.
+#
+# Thresholds are for the 2000-step (epochs=20) default. Pass --epochs 50 and
+# run.py rescales them automatically to keep the same fractions at ~5000 steps.
+name: curriculum_features
+seed: 42
+epochs: 20
+steps: 100
+batch_size: 32
+lr: 0.003892
+num_datapoints: 200
+
+# paper architecture (identical to baseline_features)
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+# stage 0 sets the FULL regime for every knob EXCEPT max_features, which starts
+# small (4). Later stages override ONLY max_features, ramping it up to 60. All
+# other knobs stay pinned at full because apply_knobs leaves untouched knobs alone.
+schedule:
+  0:    {min_features: 2, max_features: 4,  max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}
+  700:  {max_features: 20}
+  1400: {max_features: 60}
+  

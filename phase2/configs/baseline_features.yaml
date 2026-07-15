@@ -1,0 +1,22 @@
+# PHASE 2 BASELINE — control for the max_features curriculum.
+# nanoTabPFN trained at FULL max_features (60) the whole run, paper-tuned recipe.
+# Identical to curriculum_features.yaml EXCEPT max_features never ramps — so the
+# only difference between the two arms is the feature curriculum. No kNN, no other
+# knobs moving: everything is pinned at the full regime throughout.
+name: baseline_features
+seed: 42
+epochs: 20        # x100 = 2000 native steps; pass --epochs 50 for the ~5000-step run
+steps: 100
+batch_size: 32
+lr: 0.003892
+num_datapoints: 200
+
+# paper architecture (3-layer / 96-emb / 4-head / 192-hidden)
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+# one fixed stage at the full regime — max_features stays 60 the entire run
+schedule:
+  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128, num_causes: 12}

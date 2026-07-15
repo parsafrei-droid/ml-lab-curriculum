@@ -1,0 +1,37 @@
+# PHASE 2 — THE TRUE BASELINE Dominika asked for.
+# "Pretrain nanoTabPFN on the TabICLv2 prior from scratch, WITHOUT CHANGING
+# ANYTHING." This is that run: we set ONLY the shape the model architecture needs
+# (feature/class caps), and touch NONE of the prior's internal hyperparameters.
+#
+# WHY this differs from baseline_features.yaml:
+#   baseline_features pins noise_std/num_layers/hidden_dim/num_causes to our own
+#   "full regime" values. But those aren't the prior's real defaults — and because
+#   the scheduler only moves a log-scale CEILING (max_mean), pinning them doesn't
+#   even do what the numbers suggest. So that file is our curriculum's CONTROL,
+#   not the unchanged prior.
+#
+#   Here we list NO internal knobs, so apply_knobs never touches them and TabICLv2
+#   samples noise_std, num_layers, hidden_dim, num_causes, is_causal, the 70/30
+#   MLP/tree mix, etc. exactly as it ships. THIS is the honest starting point:
+#   understand its train + val curves and TabArena score BEFORE any curriculum.
+#
+# max_features = 100 and max_classes = 10 are the TabICLv2 PriorDataset defaults
+# (verified from the shipped code), so this matches the unchanged prior's shape.
+name: baseline_default_prior
+seed: 42
+epochs: 20        # x100 = 2000 native steps; pass --epochs 50 for the ~5000-step run
+steps: 100
+batch_size: 32
+lr: 0.003892
+num_datapoints: 200
+
+# paper architecture (3-layer / 96-emb / 4-head / 192-hidden)
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+# ONE fixed stage, ONLY the shape caps (the prior's own defaults). No internal
+# knobs => the TabICLv2 prior is left completely unchanged.
+schedule:
+  0: {min_features: 2, max_features: 100, max_classes: 10}
