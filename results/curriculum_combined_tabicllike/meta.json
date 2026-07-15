@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_tabicllike",
+  "seed": 42,
+  "device": "cpu",
+  "total_steps": 2500,
+  "elapsed_s": 3265.1,
+  "sec_per_step": 1.3061,
+  "steps_per_sec": 0.77,
+  "peak_gpu_gb": 0.0,
+  "final_train_loss": 1.0454,
+  "final_val_loss": 1.1642,
+  "final_val_acc": 0.503,
+  "num_outputs": 10
+}
