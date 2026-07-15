@@ -1,0 +1,117 @@
+"""One-shot Colab setup for the Phase-2 runs. NO notebook, NO cell ordering.
+
+Run this ONCE at the top of a fresh Colab (GPU) session:
+
+    !git clone --branch curriculum-fixes --single-branch \
+        https://github.com/parsafrei-droid/ml-lab-curriculum.git
+    %cd ml-lab-curriculum
+    !python phase2/colab_setup.py
+
+It clones the two upstream deps at pinned commits, installs the minimal real deps,
+and writes tiny stub packages for the prior backends this project imports at module
+load but never CALLS on the classification path (pfns / tabpfn_prior / ticl). The
+stub name set was verified against the tfmplayground source with an AST check, so it
+is complete — not guessed.
+
+After it prints "SETUP OK", run a training scenario, e.g.:
+
+    !python scripts/run.py --config phase2/configs/curriculum_features.yaml \
+        --epochs 5 --name smoke_curriculum_features_colab
+"""
+
+import site
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+
+REPO = Path("/content/ml-lab-curriculum")
+PIN = {"TFM-Playground": ("https://github.com/automl/TFM-Playground.git", "98e33be"),
+       "tabicl": ("https://github.com/soda-inria/tabicl.git", "8f665ed")}
+
+
+def sh(cmd):
+    print(f"$ {cmd}")
+    subprocess.run(cmd, shell=True, check=True)
+
+
+def clone_deps():
+    for name, (url, commit) in PIN.items():
+        d = REPO / name
+        if not d.exists():
+            sh(f"git clone {url} {d}")
+        sh(f"git -C {d} checkout {commit}")
+
+
+def install():
+    sh(f"{sys.executable} -m pip -q install schedulefree einops huggingface-hub "
+       f"'scikit-learn>=1.5' pandas requests h5py")
+    # --no-deps so neither package drags torch to a different version than Colab's
+    sh(f"{sys.executable} -m pip -q install --no-deps -e {REPO}/tabicl")
+    sh(f"{sys.executable} -m pip -q install --no-deps -e {REPO}/TFM-Playground")
+
+
+# module_relpath -> file contents. Verified complete against tfmplayground source.
+STUB_FILES = {
+    "pfns/__init__.py": "",
+    "pfns/bar_distribution.py": textwrap.dedent("""\
+        # stub: imported at module load; only used on the regression path, which the
+        # classification smoke/real runs (CrossEntropyLoss) never execute.
+        class FullSupportBarDistribution:
+            pass
+
+        def get_bucket_limits(*args, **kwargs):
+            raise NotImplementedError("pfns stub: regression-only, not used here")
+        """),
+    "tabpfn_prior/__init__.py": "class TabPFNPriorDataLoader:  # stub\n    pass\n",
+    "ticl/__init__.py": "",
+    "ticl/dataloader.py": "class PriorDataLoader:  # stub\n    pass\n",
+    "ticl/priors.py": textwrap.dedent("""\
+        class BooleanConjunctionPrior: pass
+        class ClassificationAdapterPrior: pass
+        class GPPrior: pass
+        class MLPPrior: pass
+        class StepFunctionPrior: pass
+        """),
+}
+
+
+def write_stubs():
+    sp = Path(site.getsitepackages()[0])
+    for rel, content in STUB_FILES.items():
+        f = sp / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(content)
+    print(f"wrote {len(STUB_FILES)} stub files under {sp}")
+
+
+def self_check():
+    # Import EXACTLY the chain scripts/run.py uses, in THIS process, so any missing
+    # name fails here with a clear message instead of mid-training.
+    for p in (REPO, REPO / "TFM-Playground", REPO / "tabicl" / "src", REPO / "tabicl"):
+        if str(p) not in sys.path:
+            sys.path.insert(0, str(p))
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    import torch
+    print("torch", torch.__version__, "| cuda:", torch.cuda.is_available())
+    from tabicl.prior._prior_config import DEFAULT_SAMPLED_HP  # noqa: F401
+    from tfmplayground.models.nanotabpfn import NanoTabPFNModel  # noqa: F401
+    from tfmplayground.train import train  # noqa: F401
+    from tfmplayground.utils import get_default_device  # noqa: F401
+    from tfmplayground.external_priors import TabICLPriorDataLoader  # noqa: F401
+    from curriculum.prior import make_prior  # noqa: F401  <- the real run.py entrypoint
+    from curriculum.scheduler import CurriculumScheduler  # noqa: F401
+    if not torch.cuda.is_available():
+        print("WARNING: no CUDA — set Runtime > Change runtime type > T4 GPU.")
+
+
+if __name__ == "__main__":
+    clone_deps()
+    install()
+    write_stubs()
+    self_check()
+    print("\nSETUP OK — the full run.py import chain resolves. Now run:")
+    print("  !python scripts/run.py --config phase2/configs/curriculum_features.yaml "
+          "--epochs 5 --name smoke_curriculum_features_colab")
