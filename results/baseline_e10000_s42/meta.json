@@ -1,0 +1,14 @@
+{
+  "name": "baseline_e10000_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 10000,
+  "elapsed_s": 370.8,
+  "sec_per_step": 0.0371,
+  "steps_per_sec": 26.97,
+  "peak_gpu_gb": 63.463,
+  "final_train_loss": 0.9241,
+  "final_val_loss": 0.7067,
+  "final_val_acc": 0.675,
+  "num_outputs": 10
+}

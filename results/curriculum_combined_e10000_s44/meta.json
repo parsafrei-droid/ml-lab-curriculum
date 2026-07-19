@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_e10000_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 10000,
+  "elapsed_s": 395.6,
+  "sec_per_step": 0.0396,
+  "steps_per_sec": 25.28,
+  "peak_gpu_gb": 64.145,
+  "final_train_loss": 0.9298,
+  "final_val_loss": 0.6889,
+  "final_val_acc": 0.6711,
+  "num_outputs": 10
+}

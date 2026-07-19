@@ -1,0 +1,47 @@
+# ABLATION (binary/paper scale) - features/classes pinned at paper_binary's
+# ceiling from step 0 (no ramp on that axis - see curriculum_combined_binary.
+# yaml's note on how little room a 2->3->4 feature ramp actually has).
+# NESTED design, not lockstep: for EACH num_layers value (2, then 4, then 6),
+# hold it constant and cycle noise_std through its full ramp
+# (0.001 -> 0.1 -> 0.3) before stepping num_layers up and starting the noise
+# cycle over again from 0.001. So noise_std is NOT monotonic across the whole
+# run - it resets at each num_layers transition; only num_layers (and
+# hidden_dim, its paired SCM width knob) increases monotonically. The run
+# still ends at the full ceiling (num_layers=6, noise_std=0.3, hidden_dim=130),
+# matching paper_binary.yaml - it just visits the grid of 3 num_layers x 3
+# noise_std combinations in blocks along the way, instead of ramping both
+# together in 3 steps.
+#
+# Thresholds are all multiples of CHECKPOINT_STEPS (100, see run.py) - a
+# transition landing mid-checkpoint-interval would blend two difficulty
+# stages into one logged loss.csv/val.csv row; aligning them means every
+# checkpoint reflects exactly one stage. num_layers blocks: 0-800 (layers=2),
+# 800-1700 (layers=4), 1700-2500 (layers=6) - close to even (800/900/800).
+#
+# noise_std starts at 0.001, not 0: TabICL's noise_std sampler is log-scaled
+# (tabicl/src/tabicl/prior/_hp_sampling.py:181, math.log(min_mean/max_mean)),
+# so a literal 0 raises "math domain error" - 0.001 is the closest safe
+# near-zero start.
+name: curriculum_noise_layers_binary
+seed: 42
+steps: 2500        # matches paper_binary.yaml; 9 stages, thresholds on 100-step boundaries
+batch_size: 32     # paper_binary.yaml's effective_batch_size
+lr: 0.003892        # paper_binary.yaml's lr
+num_datapoints: 154 # paper_binary.yaml's num_datapoints_max (fixed, not sampled - see paper_binary.yaml's note)
+
+# paper_binary.yaml's architecture
+heads: 4
+embedding_size: 96
+hidden_size: 192   # 96 x mlp_multiple(2)
+layers: 3          # unverified against the paper itself - see paper_binary.yaml's note
+
+schedule:
+  0:    {min_features: 4, max_features: 4, max_classes: 2, num_layers: 2, hidden_dim: 16,  noise_std: 0.001}
+  300:  {noise_std: 0.1}
+  600:  {noise_std: 0.3}
+  800:  {num_layers: 4, hidden_dim: 64,  noise_std: 0.001}
+  1100: {noise_std: 0.1}
+  1400: {noise_std: 0.3}
+  1700: {num_layers: 6, hidden_dim: 130, noise_std: 0.001}
+  1900: {noise_std: 0.1}
+  2200: {noise_std: 0.3}

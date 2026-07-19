@@ -2,13 +2,13 @@
 # One CHUNK of a long run, on the 30-min short partition. Trains from wherever the
 # last chunk left off (via run.py --resume) up to --stop-after-step. Chained with
 # --dependency=afterok by scripts/submit_chunked.sh so a full run completes as
-# several of these back to back. Used when gpu_h100 (the only long partition) is
+# several of these back to back. Used when gpu_a100_il (the only long partition) is
 # unavailable and batch-32 is too slow to fit one short job.
 #
 #   sbatch scripts/run_chunk.sh <config> <name> <seed> <steps> <stop_after> [resume]
 #
 #SBATCH --job-name=chunk
-#SBATCH --partition=gpu_h100_short
+#SBATCH --partition=gpu_a100_short
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

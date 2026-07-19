@@ -5,7 +5,7 @@
 #   sbatch scripts/eval_chunk.sh <name>
 #
 #SBATCH --job-name=evalchunk
-#SBATCH --partition=gpu_h100_short
+#SBATCH --partition=gpu_a100_short
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

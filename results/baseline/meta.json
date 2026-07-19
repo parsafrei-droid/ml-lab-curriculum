@@ -1,0 +1,14 @@
+{
+  "name": "baseline",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 2000,
+  "elapsed_s": 184.7,
+  "sec_per_step": 0.0924,
+  "steps_per_sec": 10.83,
+  "peak_gpu_gb": 1.916,
+  "final_train_loss": 0.9629,
+  "final_val_loss": 1.1651,
+  "final_val_acc": 0.5111,
+  "num_outputs": 10
+}

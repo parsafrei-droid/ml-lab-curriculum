@@ -1,13 +1,13 @@
 #!/bin/bash
 # One (scenario, lr, seed) run of the lr sweep, as a short job on the free
-# short partition (gpu_h100 is reserved). Body matches scripts/lr_sweep.sh's
+# short partition (gpu_a100_il is reserved). Body matches scripts/lr_sweep.sh's
 # inner loop exactly; the sweep is just split into per-run jobs so it fits the
 # 30-min cap and runs in parallel. Each 5k-step run is ~6 min.
 #
 #   sbatch scripts/lr_sweep_one.sh <scenario> <lr> <seed> <steps>
 #
 #SBATCH --job-name=lr1
-#SBATCH --partition=gpu_h100_short
+#SBATCH --partition=gpu_a100_short
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

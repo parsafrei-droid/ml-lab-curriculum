@@ -11,7 +11,7 @@
 # Writes results/<scenario>_lr<value>_s<seed>/; then: python scripts/plot_lr_sweep.py
 
 #SBATCH --job-name=lr_sweep
-#SBATCH --partition=gpu_h100
+#SBATCH --partition=gpu_a100_il
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

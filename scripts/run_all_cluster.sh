@@ -9,7 +9,7 @@
 # csv/json/png get committed). ~6 min per run x 18 runs ~= 2 h.
 
 #SBATCH --job-name=curriculum_all
-#SBATCH --partition=gpu_h100          # bwUniCluster 3.0 H100 partition (3-day max; the _short one caps at 30 min)
+#SBATCH --partition=gpu_a100_il          # A100, smallest/least-contended GPU tier (2-day max; the _short one caps at 30 min)
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

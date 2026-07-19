@@ -58,15 +58,27 @@ class ToyTabArenaProbeCallback(Callback):
         predictions = get_openml_predictions(
             model=classifier, classification=True, tasks=TOY_TASKS_CLASSIFICATION,
         )
-        aucs = [
-            roc_auc_score(y_true, y_proba, multi_class="ovr")
-            for y_true, _y_pred, y_proba in predictions.values()
-        ]
+        # A model's classification head is architecturally fixed-width
+        # (num_outputs, from training's schedule max max_classes) - iris/wine
+        # are 3-class, so a binary-only model (num_outputs=2) can't represent
+        # them; roc_auc_score would crash on the mismatch (predict_proba
+        # silently clips instead of erroring, same failure mode as
+        # eval_tabarena.py hit). Skip what doesn't fit instead of crashing the
+        # whole training run over a probe that's meant to be a cheap side check.
+        aucs = []
+        for name, (y_true, _y_pred, y_proba) in predictions.items():
+            try:
+                aucs.append(roc_auc_score(y_true, y_proba, multi_class="ovr"))
+            except ValueError as e:
+                print(f"            | toy_tabarena probe: skipped {name} - {e}", flush=True)
+        if not aucs:
+            print(f"            | toy_tabarena_roc_auc n/a (no compatible toy task for this model)", flush=True)
+            return
         auc = float(sum(aucs) / len(aucs))
         self.rows.append((step, auc))
         with self.csv_path.open("a") as f:
             f.write(f"{step},{auc:.4f}\n")
-        print(f"            | toy_tabarena_roc_auc {auc:.4f}", flush=True)
+        print(f"            | toy_tabarena_roc_auc {auc:.4f} ({len(aucs)}/{len(predictions)} tasks)", flush=True)
 
     def close(self):
         if not self.rows:

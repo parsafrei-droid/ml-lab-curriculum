@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=curriculum_smoke
-#SBATCH --partition=dev_gpu_h100
+#SBATCH --partition=dev_gpu_a100_il
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

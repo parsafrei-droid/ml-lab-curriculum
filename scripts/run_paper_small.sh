@@ -6,7 +6,7 @@
 #   sbatch scripts/run_paper_small.sh
 #
 #SBATCH --job-name=paper_small
-#SBATCH --partition=gpu_h100
+#SBATCH --partition=gpu_a100_il
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

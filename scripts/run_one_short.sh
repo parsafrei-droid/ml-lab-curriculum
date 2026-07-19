@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run ONE (scenario, seed) as a short <30-min job on the free H100 short partition,
-# used when gpu_h100 (production) is reserved/drained. Splitting the sweep into
+# used when gpu_a100_il (production) is reserved/drained. Splitting the sweep into
 # one job per run keeps each well under the 30-min cap and lets them run in
 # parallel across the free nodes.
 #
@@ -11,7 +11,7 @@
 #     [steps]  optional --steps override (omit to use the config's own steps)
 #
 #SBATCH --job-name=run1
-#SBATCH --partition=gpu_h100_short
+#SBATCH --partition=gpu_a100_short
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
