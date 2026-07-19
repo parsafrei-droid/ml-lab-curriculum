@@ -132,7 +132,7 @@ def main():
     eval_every = cfg.get("eval_every", 100)
 
     items = load_pool(BASE / cfg["pool"])
-    order = order_indices(items, cfg["order"], seed)
+    order = order_indices(items, cfg["order"], seed, cfg.get("restarts", 3))
     cursor = 0
 
     model = NanoTabPFNModel(

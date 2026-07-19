@@ -48,10 +48,18 @@ def load_pool(path):
     return torch.load(path, weights_only=False)["items"]
 
 
-def order_indices(items, mode, seed):
+def order_indices(items, mode, seed, restarts=3):
     idx = list(range(len(items)))
     if mode == "curriculum":
         idx.sort(key=lambda i: items[i]["n_features"])
+    elif mode == "curriculum_restart":
+        ordered = sorted(idx, key=lambda i: items[i]["n_features"])
+        buckets = [[] for _ in range(restarts)]
+        for j, i in enumerate(ordered):
+            buckets[j % restarts].append(i)
+        idx = []
+        for b in buckets:
+            idx += sorted(b, key=lambda i: items[i]["n_features"])
     elif mode == "shuffle":
         np.random.default_rng(seed).shuffle(idx)
     else:
