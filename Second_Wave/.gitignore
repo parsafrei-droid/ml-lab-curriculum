@@ -1,0 +1,7 @@
+pools/
+results/
+figures/
+workdir/
+__pycache__/
+*.pyc
+slurm-*.out
