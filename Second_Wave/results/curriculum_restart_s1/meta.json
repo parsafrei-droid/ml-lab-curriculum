@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_restart_s1",
+  "seed": 1,
+  "order": "curriculum_restart",
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 80000,
+  "elapsed_s": 722.4,
+  "cum_flops": 5562012211200.0,
+  "peak_gpu_gb": 0.559,
+  "num_outputs": 10
+}

@@ -1,0 +1,16 @@
+name: curriculum_restart
+seed: 42
+pool: pools/main.pt
+order: curriculum_restart
+restarts: 3
+total_steps: 2500
+grad_accum: 32
+lr: 0.003892
+max_classes: 10
+num_datapoints: 200
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+eval_every: 100
+val_per_band: 32
