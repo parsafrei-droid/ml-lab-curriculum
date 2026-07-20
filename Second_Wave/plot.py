@@ -17,7 +17,7 @@ def read_log(path):
 
 
 def col(rows, name):
-    return [float(r[name]) if r[name] != "" else np.nan for r in rows]
+    return [float(r.get(name, "")) if r.get(name, "") != "" else np.nan for r in rows]
 
 
 def plot_run(out_dir):
@@ -77,6 +77,7 @@ def main():
     compare("val_auc", "validation ROC-AUC (shared set)", "val_auc.png")
     compare("val_loss", "validation loss (shared set)", "val_loss.png")
     compare("mean_features", "features per step", "feature_ramp.png")
+    compare("mean_classes", "classes per step", "class_ramp.png")
 
 
 if __name__ == "__main__":

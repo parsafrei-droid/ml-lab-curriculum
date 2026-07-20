@@ -28,6 +28,7 @@ def build_pool(out_path, size, min_features, max_features, max_classes, num_data
             "y": y.cpu().contiguous(),
             "split": int(b["train_test_split_index"]),
             "n_features": int(x.shape[2]),
+            "n_classes": int(y.unique().numel()),
         })
     out_path = pathlib.Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -48,10 +49,18 @@ def load_pool(path):
     return torch.load(path, weights_only=False)["items"]
 
 
+def n_classes(item):
+    if "n_classes" in item:
+        return item["n_classes"]
+    return int(item["y"].unique().numel())
+
+
 def order_indices(items, mode, seed, restarts=3):
     idx = list(range(len(items)))
     if mode == "curriculum":
         idx.sort(key=lambda i: items[i]["n_features"])
+    elif mode == "curriculum_classes":
+        idx.sort(key=lambda i: n_classes(items[i]))
     elif mode == "curriculum_restart":
         ordered = sorted(idx, key=lambda i: items[i]["n_features"])
         buckets = [[] for _ in range(restarts)]

@@ -22,7 +22,7 @@ from tfmplayground.models.nanotabpfn import NanoTabPFNModel
 from tfmplayground.utils import get_default_device, set_randomness_seed
 
 from plot import plot_run
-from pool import load_pool, order_indices
+from pool import load_pool, n_classes, order_indices
 from prior import build_validation
 
 
@@ -154,7 +154,7 @@ def main():
     log_path = out_dir / "log.csv"
     with open(log_path, "w", newline="") as f:
         csv.writer(f).writerow([
-            "step", "mean_features", "train_loss", "val_loss", "val_acc", "val_auc",
+            "step", "mean_features", "mean_classes", "train_loss", "val_loss", "val_acc", "val_auc",
             "val_auc_easy", "val_auc_medium", "val_auc_hard",
             "cum_time_s", "cum_flops", "peak_gpu_gb",
         ])
@@ -173,6 +173,7 @@ def main():
         running = 0.0
         used = 0
         step_features = []
+        step_classes = []
         for _ in range(grad_accum):
             it = items[order[cursor % len(order)]]
             cursor += 1
@@ -184,6 +185,7 @@ def main():
             running += loss.item() * grad_accum
             used += 1
             step_features.append(it["n_features"])
+            step_classes.append(n_classes(it))
             cum_flops += approx_flops(x.shape[1], it["n_features"], model)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -198,7 +200,8 @@ def main():
             vl, va, vauc = r["all"]
             with open(log_path, "a", newline="") as f:
                 csv.writer(f).writerow([
-                    step, round(mean(step_features), 2), round(running / max(used, 1), 6),
+                    step, round(mean(step_features), 2), round(mean(step_classes), 2),
+                    round(running / max(used, 1), 6),
                     round(vl, 6), round(va, 4), fmt(vauc),
                     fmt(r["easy"][2]), fmt(r["medium"][2]), fmt(r["hard"][2]),
                     round(cum_time, 2), round(cum_flops, 1), round(peak, 3),
