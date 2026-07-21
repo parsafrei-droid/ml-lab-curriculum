@@ -55,12 +55,25 @@ def n_classes(item):
     return int(item["y"].unique().numel())
 
 
+def combined_scores(items):
+    feats = [it["n_features"] for it in items]
+    cls = [n_classes(it) for it in items]
+    f_lo, f_hi = min(feats), max(feats)
+    c_lo, c_hi = min(cls), max(cls)
+    f_range = max(f_hi - f_lo, 1)
+    c_range = max(c_hi - c_lo, 1)
+    return [(f - f_lo) / f_range + (c - c_lo) / c_range for f, c in zip(feats, cls)]
+
+
 def order_indices(items, mode, seed, restarts=3):
     idx = list(range(len(items)))
     if mode == "curriculum":
         idx.sort(key=lambda i: items[i]["n_features"])
     elif mode == "curriculum_classes":
         idx.sort(key=lambda i: n_classes(items[i]))
+    elif mode == "curriculum_combined":
+        score = combined_scores(items)
+        idx.sort(key=lambda i: score[i])
     elif mode == "curriculum_restart":
         ordered = sorted(idx, key=lambda i: items[i]["n_features"])
         buckets = [[] for _ in range(restarts)]
