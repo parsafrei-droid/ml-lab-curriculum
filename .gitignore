@@ -18,6 +18,9 @@ requirements.txt
 # Training checkpoints land here (relative to where train() runs)
 workdir/
 
+# Fixed dataset pools for curriculum.pool (scripts/build_pool.py) - large (100s of MB+)
+pools/
+
 # Large data files — do not commit
 data/*.h5
 data/*.pkl

@@ -1,0 +1,24 @@
+# Pool-mode version of curriculum_noise_layers_binary_early_ramp.yaml.
+# Trains by walking pools/binary_early_ramp.pt (built from pool_binary_early_ramp.yaml's
+# 12-stage regime layout, cumulative knobs, verified against that run's actual
+# production logs) in ascending regime order (easy -> hard).
+#
+# Paired with pool_baseline_shuffle_binary_early_ramp.yaml: same pool file,
+# same hyperparameters, order: shuffle instead of curriculum - one prior,
+# two presentation orders, same as the collaborator's baseline/curriculum_features
+# pair in Second_Wave/train.py.
+name: pool_curriculum_noise_binary_early_ramp
+seed: 42
+steps: 10000
+batch_size: 32
+lr: 0.003892
+num_datapoints: 154
+max_classes: 2
+
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+pool: pools/binary_early_ramp.pt
+order: curriculum

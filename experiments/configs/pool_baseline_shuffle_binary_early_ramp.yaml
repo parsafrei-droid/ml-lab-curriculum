@@ -1,0 +1,21 @@
+# Baseline for the early-ramp pool ablation: the SAME pool as
+# pool_curriculum_noise_binary_early_ramp.yaml (pools/binary_early_ramp.pt),
+# shuffled instead of ordered easy->hard. Identical underlying data population
+# (same prior, same regime-generated items); only presentation order differs -
+# this isolates the effect of ordering itself, same as the collaborator's
+# baseline vs. curriculum_features pair in Second_Wave/train.py.
+name: pool_baseline_shuffle_binary_early_ramp
+seed: 42
+steps: 10000
+batch_size: 32
+lr: 0.003892
+num_datapoints: 154
+max_classes: 2
+
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+pool: pools/binary_early_ramp.pt
+order: shuffle

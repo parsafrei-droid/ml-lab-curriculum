@@ -102,6 +102,49 @@ def make_validation_batches(device, n=256, num_datapoints=200, seed=12345, max_c
     return batches
 
 
+def make_banded_validation_batches(device, bands, max_classes, num_datapoints=200,
+                                    per_band=32, seed=12345):
+    """Like make_validation_batches, but split into named difficulty bands instead
+    of one pooled set - e.g. {"low_noise": {...knobs}, "high_noise": {...knobs}}.
+
+    `bands` is a {name: knobs_dict} mapping, one make_prior(knobs=...) call per
+    band - generalized beyond a feature-count range (a collaborator's original
+    version banded by feature count, which is a real axis only when feature count
+    varies across the run; this repo's binary scope pins min_features==max_features,
+    so the bands here are along whatever knobs the caller passes, typically
+    noise_std/num_layers/hidden_dim - the actual difficulty axis in binary scope).
+
+    Same fixed-seed, same 3-state (np/torch/random) save-restore discipline as
+    make_validation_batches, reused verbatim for the reason documented there:
+    TabICL's SCM generators also draw from stdlib `random`, so seeding only
+    np/torch isn't enough to make this set independent of the caller's own seed.
+
+    Returns {band_name: [(x, y, train_test_split_index), ...]}.
+    """
+    np_state, torch_state = np.random.get_state(), torch.get_rng_state()
+    py_state = random.getstate()
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
+    try:
+        out = {}
+        for name, knobs in bands.items():
+            prior = make_prior(
+                max_features=knobs.get("max_features", FULL_REGIME["max_features"]),
+                max_classes=max_classes,
+                min_features=knobs.get("min_features", 2),
+                num_datapoints=num_datapoints,
+                num_steps=per_band, batch_size=1, device=device,
+                knobs={k: v for k, v in knobs.items() if k not in ("min_features", "max_features")},
+            )
+            out[name] = [(b["x"], b["y"], b["train_test_split_index"]) for b in prior]
+        return out
+    finally:
+        np.random.set_state(np_state)
+        torch.set_rng_state(torch_state)
+        random.setstate(py_state)
+
+
 def sample_dataset(prior):
     """Grab one dataset from the prior as numpy (X, y).
 

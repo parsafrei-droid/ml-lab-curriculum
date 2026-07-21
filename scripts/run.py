@@ -31,9 +31,10 @@ sys.path.insert(0, str(BASE))
 import matplotlib.pyplot as plt
 import torch
 import yaml
+from sklearn.metrics import roc_auc_score
 from torch import nn
 
-from curriculum.prior import make_prior, make_validation_batches
+from curriculum.prior import make_prior, make_validation_batches, make_banded_validation_batches
 from curriculum.scheduler import CurriculumScheduler
 from tfmplayground.callbacks import Callback
 from tfmplayground.models.nanotabpfn import NanoTabPFNModel
@@ -175,6 +176,98 @@ class FixedValidationCallback(Callback):
         plt.close()
 
 
+class BandedValidationCallback(Callback):
+    """Like FixedValidationCallback, but scores several named difficulty bands
+    separately instead of one pooled set - so you can see whether a curriculum
+    that's winning "on average" is actually winning on the hard band, or just
+    coasting on the easy one dragging the mean up.
+
+    Opt-in: only attached when a config has a `val_bands:` key (a {name: knobs}
+    mapping - see experiments/configs/pool_curriculum_noise_binary.yaml for an
+    example). Writes its own file (results/<name>/val_bands.csv) rather than
+    touching val.csv, so existing tooling (compare_results.py) that reads val.csv
+    as the flat step,val_loss,val_acc it's always been is unaffected.
+    """
+
+    def __init__(self, out_dir, device, num_outputs, bands, n=32, resume=False):
+        self.out_dir = out_dir
+        self.bands = make_banded_validation_batches(device, bands, max_classes=num_outputs, per_band=n)
+        self.criterion = nn.CrossEntropyLoss()
+        self.rows = []  # (step, band, val_loss, val_acc, val_auc)
+        self.csv_path = out_dir / "val_bands.csv"
+        if resume and self.csv_path.exists():
+            with self.csv_path.open() as f:
+                next(f, None)  # header
+                for line in f:
+                    s, band, vl, va, auc = line.strip().split(",")
+                    self.rows.append((int(s), band, float(vl), float(va),
+                                       None if auc == "" else float(auc)))
+        else:
+            self.csv_path.write_text("step,band,val_loss,val_acc,val_auc\n")
+
+    @torch.no_grad()
+    def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
+        step = epoch * CHECKPOINT_STEPS
+        n_out = model.num_outputs
+        for band_name, batches in self.bands.items():
+            losses, accs, aucs = [], [], []
+            for x, y, split in batches:
+                out = model((x, y[:, :split]), train_test_split_index=split).view(-1, n_out)
+                tgt = y[:, split:].reshape(-1).long()
+                losses.append(self.criterion(out, tgt).item())
+                accs.append((out.argmax(-1) == tgt).float().mean().item())
+                probs = torch.softmax(out, dim=-1).cpu().numpy()
+                tgt_np = tgt.cpu().numpy()
+                classes = set(tgt_np.tolist())
+                if len(classes) == 2:
+                    pos = max(classes)
+                    aucs.append(roc_auc_score(tgt_np == pos, probs[:, pos]))
+                # else: skip AUC for this batch (needs >=2 classes present to be defined)
+            vl = float(sum(losses) / len(losses))
+            va = float(sum(accs) / len(accs))
+            auc = float(sum(aucs) / len(aucs)) if aucs else None
+            self.rows.append((step, band_name, vl, va, auc))
+            with self.csv_path.open("a") as f:
+                f.write(f"{step},{band_name},{vl:.6f},{va:.4f},{'' if auc is None else f'{auc:.4f}'}\n")
+            auc_str = f"{auc:.4f}" if auc is not None else "n/a"
+            print(f"            | val[{band_name}] loss {vl:.4f} | acc {va:.4f} | auc {auc_str}", flush=True)
+
+    def close(self):
+        pass
+
+
+def find_checkpoint(name, base=BASE):
+    """train() saves to "workdir/<name>/" relative to wherever it ran, so check a
+    few likely spots. Returns the path if found, else None."""
+    candidates = [
+        pathlib.Path.cwd() / "workdir" / name / "latest_checkpoint.pth",
+        base / "workdir" / name / "latest_checkpoint.pth",
+    ]
+    return next((p for p in candidates if p.exists()), None)
+
+
+def write_meta(out_dir, name, cfg, total_steps, elapsed, logger, validator, num_outputs):
+    final_loss = logger.rows[-1][1] if logger.rows else None
+    meta = {
+        "name": name,
+        "seed": cfg.get("seed", 42),
+        "device": str(logger.device),
+        "total_steps": total_steps,
+        "elapsed_s": round(elapsed, 1),
+        # compute-resource summary, so we can compare "same compute" fairly
+        "sec_per_step": round(elapsed / total_steps, 4),
+        "steps_per_sec": round(total_steps / elapsed, 2),
+        "peak_gpu_gb": round(logger.peak_gpu_gb, 3),
+        "final_train_loss": round(final_loss, 4) if final_loss is not None else None,
+        # comparable across scenarios (same validation set for everyone)
+        "final_val_loss": round(validator.final[0], 4) if validator.final else None,
+        "final_val_acc": round(validator.final[1], 4) if validator.final else None,
+        "num_outputs": num_outputs,
+    }
+    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+    return meta
+
+
 def load_config(path):
     with open(path) as f:
         cfg = yaml.safe_load(f)
@@ -300,6 +393,12 @@ def main():
 
     logger = LossLoggerCallback(out_dir, device, resume=resume)
     validator = FixedValidationCallback(out_dir, device, num_outputs, resume=resume)
+    callbacks = [logger, validator]
+    # Opt-in: only configs with a `val_bands:` key (a {name: knobs} mapping) get
+    # per-band validation logging, on top of the usual pooled val.csv - see
+    # BandedValidationCallback's docstring. Configs without it are unaffected.
+    if "val_bands" in cfg:
+        callbacks.append(BandedValidationCallback(out_dir, device, num_outputs, cfg["val_bands"], resume=resume))
     start = time.time()
     train(
         model=model,
@@ -308,7 +407,7 @@ def main():
         epochs=this_run_checkpoints,
         lr=cfg.get("lr", 1e-4),
         device=device,
-        callbacks=[logger, validator],
+        callbacks=callbacks,
         run_name=name,
         ckpt=ckpt,
     )
@@ -323,36 +422,13 @@ def main():
               f"resume with --resume to continue ===", flush=True)
         return
 
-    # train() saves to "workdir/<name>/" relative to wherever it ran, so check a
-    # few likely spots and copy the checkpoint next to our results.
-    candidates = [
-        pathlib.Path.cwd() / "workdir" / name / "latest_checkpoint.pth",
-        BASE / "workdir" / name / "latest_checkpoint.pth",
-    ]
-    ckpt_src = next((p for p in candidates if p.exists()), None)
+    ckpt_src = find_checkpoint(name)
     if ckpt_src:
         shutil.copy(ckpt_src, out_dir / "checkpoint.pth")
     else:
         print("warning: could not find the saved checkpoint to copy", flush=True)
 
-    final_loss = logger.rows[-1][1] if logger.rows else None
-    meta = {
-        "name": name,
-        "seed": cfg.get("seed", 42),
-        "device": str(device),
-        "total_steps": total_steps,
-        "elapsed_s": round(elapsed, 1),
-        # compute-resource summary, so we can compare "same compute" fairly
-        "sec_per_step": round(elapsed / total_steps, 4),
-        "steps_per_sec": round(total_steps / elapsed, 2),
-        "peak_gpu_gb": round(logger.peak_gpu_gb, 3),
-        "final_train_loss": round(final_loss, 4) if final_loss is not None else None,
-        # comparable across scenarios (same validation set for everyone)
-        "final_val_loss": round(validator.final[0], 4) if validator.final else None,
-        "final_val_acc": round(validator.final[1], 4) if validator.final else None,
-        "num_outputs": num_outputs,
-    }
-    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+    meta = write_meta(out_dir, name, cfg, total_steps, elapsed, logger, validator, num_outputs)
     print(f"done in {elapsed:.1f}s ({meta['sec_per_step']}s/step) -> {out_dir}")
 
 

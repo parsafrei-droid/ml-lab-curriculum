@@ -1,0 +1,34 @@
+# Pool-build spec - NOT a training config. Consumed only by scripts/build_pool.py.
+# Builds the fixed pool that experiments/configs/pool_curriculum_noise_binary.yaml
+# and pool_baseline_shuffle_binary.yaml both train from (same pool file, only the
+# training-time presentation ORDER differs between those two - see curriculum/pool.py).
+#
+# pool_regimes is scaled from curriculum_noise_spread_binary.yaml's `schedule:`
+# block so this is a direct ablation of what that scenario ACTUALLY ran, not
+# what's literally written in its YAML file. That file is written for
+# steps: 6000 (thresholds 0/1000/2000/3000/4000/5000), but the production run
+# it was compared against (curriculum_noise_spread_binary_e10000_s42) was
+# launched with --steps 10000, and scripts/run.py's --steps override
+# proportionally rescales every schedule threshold (scale = 10000/6000 =
+# 1.6667x). Confirmed against that run's own slurm logs ([curriculum] step ...
+# prints in slurm-c_curriculum_noise_spread_binary_e10000_s42-*.out): the real
+# thresholds it trained on were 0/1667/3333/5000/6667/8333, baked in below.
+pool_out: pools/binary_main.pt
+seed: 123
+target_steps: 10000
+batch_size: 32          # pool size = target_steps * batch_size = 320000 items -
+                         # one repeat-free pass over the pool for a full 10k-step,
+                         # batch-32 run, matching the collaborator's own
+                         # pool_size == total_draws convention
+num_datapoints: 154     # paper_binary.yaml's num_datapoints_max
+max_classes: 2
+min_features: 4
+max_features: 4
+
+pool_regimes:
+  0:    {num_layers: 2, hidden_dim: 16,  noise_std: 0.001}
+  1667: {noise_std: 0.3}
+  3333: {num_layers: 4, hidden_dim: 64,  noise_std: 0.001}
+  5000: {noise_std: 0.3}
+  6667: {num_layers: 6, hidden_dim: 130, noise_std: 0.001}
+  8333: {noise_std: 0.3}
