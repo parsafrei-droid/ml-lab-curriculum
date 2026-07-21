@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_binary_e2500_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 960.5,
+  "sec_per_step": 0.3842,
+  "steps_per_sec": 2.6,
+  "peak_gpu_gb": 0.924,
+  "final_train_loss": 0.4772,
+  "final_val_loss": 0.4663,
+  "final_val_acc": 0.7663,
+  "num_outputs": 2
+}

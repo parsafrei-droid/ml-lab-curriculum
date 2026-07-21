@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_noise_layers_binary_early_ramp_e10000_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 10000,
+  "elapsed_s": 132.0,
+  "sec_per_step": 0.0132,
+  "steps_per_sec": 75.78,
+  "peak_gpu_gb": 0.927,
+  "final_train_loss": 0.4437,
+  "final_val_loss": 0.4561,
+  "final_val_acc": 0.7713,
+  "num_outputs": 2
+}

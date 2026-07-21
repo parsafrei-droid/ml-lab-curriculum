@@ -1,0 +1,64 @@
+# EARLY-RAMP variant of curriculum_noise_layers_binary.yaml. Two changes,
+# both driven by what the first run's loss.csv actually showed:
+#
+# 1. noise_std now steps 0.001 -> 0.01 -> 0.1 -> 0.3 within each num_layers
+#    block (4 levels, not 3). TabICL's noise_std sampler is log-scaled
+#    (tabicl/src/tabicl/prior/_hp_sampling.py:181), and the first run's
+#    per-transition loss deltas confirmed it: the 0.001->0.1 jumps (100x)
+#    showed a clear loss spike every time, the 0.1->0.3 jumps (3x) barely
+#    registered. 0.001/0.01/0.1/0.3 is evenly spaced in log space (exactly
+#    1 decade per step, except the last: 0.1->0.3 is ~0.5 decades, matching
+#    the paper's own reported ceiling) - each transition should now be a
+#    comparable jump instead of one dominant one.
+#
+# 2. The ramp finishes at step 1100 (44% of the run) instead of 1700 (68%),
+#    then HOLDS at the final combo (num_layers=6, hidden_dim=130,
+#    noise_std=0.3 - paper_binary.yaml's ceiling) for the remaining 1400
+#    steps uninterrupted - no more schedule entries after 1100, so nothing
+#    changes for the rest of training. The original schedule only gave the
+#    hardest setting ~800 steps (the last num_layers block, itself still
+#    subdivided into 3 noise sub-stages); paper_binary.yaml, the "no
+#    curriculum" control this is compared against, gets the full 2500 steps
+#    at that same difficulty. That's not a fair "did the model converge at
+#    the target" comparison - this version gives the curriculum variant much
+#    closer to the same amount of at-target training time within the same
+#    total step budget, instead of extending the total budget.
+#
+# num_causes is NOT ramped (kept at whatever the last stage leaves it,
+# i.e. never touched -> stays at TabICL's own default the whole run, same
+# as curriculum_noise_layers_binary.yaml and curriculum_combined.yaml before
+# it - deliberately not added here).
+#
+# Features/classes still pinned at paper_binary.yaml's ceiling from step 0
+# (min_features=max_features=4, max_classes=2 - no ramp on that axis, see
+# curriculum_combined_binary.yaml's note on how little room a 2->3->4 feature
+# ramp has). All thresholds are multiples of CHECKPOINT_STEPS (100) so every
+# checkpoint reflects exactly one stage, no blended loss.csv/val.csv rows.
+name: curriculum_noise_layers_binary_early_ramp
+seed: 42
+steps: 2500        # matches paper_binary.yaml; ramp completes at step 1100, holds after
+batch_size: 32     # paper_binary.yaml's effective_batch_size
+lr: 0.003892        # paper_binary.yaml's lr
+num_datapoints: 154 # paper_binary.yaml's num_datapoints_max (fixed, not sampled - see paper_binary.yaml's note)
+
+# paper_binary.yaml's architecture
+heads: 4
+embedding_size: 96
+hidden_size: 192   # 96 x mlp_multiple(2)
+layers: 3          # unverified against the paper itself - see paper_binary.yaml's note
+
+schedule:
+  0:    {min_features: 4, max_features: 4, max_classes: 2, num_layers: 2, hidden_dim: 16,  noise_std: 0.001}
+  100:  {noise_std: 0.01}
+  200:  {noise_std: 0.1}
+  300:  {noise_std: 0.3}
+  400:  {num_layers: 4, hidden_dim: 64,  noise_std: 0.001}
+  500:  {noise_std: 0.01}
+  600:  {noise_std: 0.1}
+  700:  {noise_std: 0.3}
+  800:  {num_layers: 6, hidden_dim: 130, noise_std: 0.001}
+  900:  {noise_std: 0.01}
+  1000: {noise_std: 0.1}
+  1100: {noise_std: 0.3}
+  # no further stages - holds at num_layers=6/hidden_dim=130/noise_std=0.3
+  # (paper_binary.yaml's ceiling) for steps 1100-2500 (1400 steps, 56% of budget)

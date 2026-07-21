@@ -1,0 +1,39 @@
+# BINARY curriculum counterpart to paper_binary.yaml - ramp the WHOLE regime
+# narrow -> paper_binary's ceiling, instead of narrow -> our full 60-feature
+# regime (see curriculum_combined.yaml). Same 0% / 35% / 70% stage fractions
+# as curriculum_combined.yaml, just scaled to 2500 steps and a much narrower
+# feature ceiling. paper_binary.yaml is the "no curriculum" control this is
+# meant to be compared against - same architecture/lr/batch/steps/ceiling,
+# the only difference is the ramp.
+#
+# max_classes is fixed at 2 for every stage (not ramped): this experiment is
+# binary-only throughout, there's no easier "fewer than 2 classes" stage to
+# start from, unlike curriculum_combined.yaml's 2 -> 5 -> 10 ramp.
+#
+# min_features == max_features at every stage (exact feature count, not a
+# range): paper_binary's ceiling is num_features=4 as a single reported value,
+# not a range (see paper_binary.yaml's own note on this) - matching that at
+# the final stage means min must equal max there, so this ramps 2 -> 3 -> 4
+# exact-feature-count stages rather than curriculum_combined.yaml's widening
+# range (min fixed at 2, max growing 4 -> 20 -> 60). Edit if you'd rather widen.
+#
+# hidden_dim ceiling is 130 (TabICL's actual DEFAULT_SAMPLED_HP max_mean),
+# not curriculum_combined.yaml's 128 - see prior discussion of the exact
+# defaults paper_small/paper_binary silently inherit.
+name: curriculum_combined_binary
+seed: 42
+steps: 2500        # matches paper_binary.yaml; ramped at 0 / 875 / 1750 (0% / 35% / 70%)
+batch_size: 32     # paper_binary.yaml's effective_batch_size
+lr: 0.003892        # paper_binary.yaml's lr
+num_datapoints: 154 # paper_binary.yaml's num_datapoints_max (fixed, not sampled - see paper_binary.yaml's note)
+
+# paper_binary.yaml's architecture
+heads: 4
+embedding_size: 96
+hidden_size: 192   # 96 x mlp_multiple(2)
+layers: 3          # unverified against the paper itself - see paper_binary.yaml's note
+
+schedule:
+  0:    {min_features: 4, max_features: 4, max_classes: 2, noise_std: 0.02, num_layers: 2, hidden_dim: 16}
+  875:  {min_features: 4, max_features: 4, max_classes: 2, noise_std: 0.1,  num_layers: 4, hidden_dim: 64}
+  1750: {min_features: 4, max_features: 4, max_classes: 2, noise_std: 0.3,  num_layers: 6, hidden_dim: 130}
