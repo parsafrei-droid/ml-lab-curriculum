@@ -1,0 +1,27 @@
+{
+  "name": "curriculum_combined_s2",
+  "seed": 2,
+  "order": "curriculum_combined",
+  "axes": [
+    "features",
+    "context"
+  ],
+  "weights": [
+    1.0,
+    1.0
+  ],
+  "ordering_profile": {
+    "features": 0.7,
+    "classes": -0.003,
+    "context": 0.703
+  },
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 80000,
+  "elapsed_s": 727.2,
+  "cum_flops": 5562012211200.0,
+  "peak_gpu_gb": 0.558,
+  "num_outputs": 10
+}
