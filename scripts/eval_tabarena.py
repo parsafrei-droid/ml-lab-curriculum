@@ -24,6 +24,34 @@ that same per-dataset scores, no re-evaluation:
                         exactly the ~16-dataset set the very first version of
                         this script (skip-only, no subsampling) evaluated.
 
+Two more metrics, same all/binary/16 breakdown, computed from the same
+predictions at no extra inference cost (TFM-Playground's own evaluation.py
+CLI already computes balanced accuracy alongside AUC for classification -
+see its __main__ block - this brings eval_tabarena.py back in line with
+that and with what the TabPFN/TabArena literature reports rather than AUC
+alone):
+  mean_balanced_accuracy[_binary|_16] - balanced_accuracy_score at the
+                        model's own argmax decision, per_dataset_balanced_
+                        accuracy for the per-dataset breakdown. Answers a
+                        different question than AUC: "how good is a fixed-
+                        threshold decision" rather than "how good is the
+                        ranking across all thresholds" - matters here since
+                        class imbalance is this project's dominant measured
+                        difficulty axis, and imbalance is exactly what
+                        skews a fixed-threshold decision even when ranking
+                        (AUC) stays robust.
+  mean_log_loss[_binary|_16] - cross-entropy on the predicted probabilities
+                        (per_dataset_log_loss per-dataset). LOWER is better,
+                        unlike the other two. AUC is invariant to any
+                        monotonic rescaling of predicted probabilities - it
+                        only asks "is the ranking right" - so it can't see
+                        calibration at all. This model class outputs a
+                        genuine posterior predictive distribution (that's
+                        the whole in-context-learning premise), so log-loss
+                        is the metric that actually checks whether those
+                        probabilities mean anything, the same way training
+                        itself is scored (nn.CrossEntropyLoss in run.py).
+
 TABARENA_CLASSIFICATION_TASKS is a hardcoded (task_id, dataset_name,
 n_features, is_binary) table for tfmplayground.evaluation.TABARENA_TASKS's
 classification tasks, rather than re-deriving task-type/feature-count/class-
@@ -63,7 +91,7 @@ sys.path.insert(0, str(BASE / "tabicl"))
 import numpy as np
 import openml
 import torch
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import balanced_accuracy_score, log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
@@ -281,28 +309,48 @@ def main():
     )
 
     scores = {}
+    bal_acc = {}
+    logloss = {}
     for name, p in predictions.items():
         try:
-            scores[name] = float(roc_auc_score(p["y_true"], p["y_proba"], multi_class="ovr"))
+            auc = float(roc_auc_score(p["y_true"], p["y_proba"], multi_class="ovr"))
+            ba = float(balanced_accuracy_score(p["y_true"], p["y_pred"]))
+            # log_loss needs explicit `labels` for the multiclass (2D proba) case so
+            # columns are interpreted as class indices 0..n-1 regardless of which of
+            # those classes actually show up in this task's (possibly subsampled)
+            # y_true; the binary case (1D proba, already sliced to P(class 1) above)
+            # doesn't take `labels` the same way, so only pass it when proba is 2D.
+            if p["y_proba"].ndim > 1:
+                ll = float(log_loss(p["y_true"], p["y_proba"], labels=list(range(p["y_proba"].shape[1]))))
+            else:
+                ll = float(log_loss(p["y_true"], p["y_proba"]))
         except Exception as e:
             print(f"  {name:40s} SCORING FAILED - {type(e).__name__}: {e}", flush=True)
             continue
-        print(f"  {name:40s} roc_auc={scores[name]:.4f}"
+        scores[name], bal_acc[name], logloss[name] = auc, ba, ll
+        print(f"  {name:40s} roc_auc={auc:.4f}  balanced_acc={ba:.4f}  log_loss={ll:.4f}"
               f"  (binary={p['is_binary']}, subsampled={p['was_subsampled']})", flush=True)
 
     # only names that actually scored (a task can be in `predictions` but
     # missing from `scores` if it failed in the try/except above)
     binary_names = sorted(n for n, p in predictions.items() if p["is_binary"] and n in scores)
     sixteen_names = sorted(n for n, p in predictions.items() if not p["was_subsampled"] and n in scores)
+    all_names = list(scores.keys())
 
-    mean_auc = _mean(scores, list(scores.keys()))
+    mean_auc = _mean(scores, all_names)
     mean_binary = _mean(scores, binary_names)
     mean_16 = _mean(scores, sixteen_names)
+    mean_ba = _mean(bal_acc, all_names)
+    mean_ba_binary = _mean(bal_acc, binary_names)
+    mean_ba_16 = _mean(bal_acc, sixteen_names)
+    mean_ll = _mean(logloss, all_names)
+    mean_ll_binary = _mean(logloss, binary_names)
+    mean_ll_16 = _mean(logloss, sixteen_names)
 
     # "mean_roc_auc"/"per_dataset" match the original (pre-subsampling) script's
     # output shape exactly, so existing readers (compare_results.py,
     # compare_by_budget.py, plot_lr_sweep.py) keep working unmodified against
-    # files written by this version.
+    # files written by this version. Everything below is purely additive.
     out = {
         "checkpoint": args.checkpoint, "task_set": args.tasks,
         "max_n_samples": args.max_n_samples, "max_n_features": args.max_n_features,
@@ -310,6 +358,11 @@ def main():
         "mean_roc_auc": mean_auc, "per_dataset": scores,
         "mean_roc_auc_binary": mean_binary, "binary_datasets": binary_names,
         "mean_roc_auc_16": mean_16, "under_max_n_samples_datasets": sixteen_names,
+        "mean_balanced_accuracy": mean_ba, "per_dataset_balanced_accuracy": bal_acc,
+        "mean_balanced_accuracy_binary": mean_ba_binary,
+        "mean_balanced_accuracy_16": mean_ba_16,
+        "mean_log_loss": mean_ll, "per_dataset_log_loss": logloss,
+        "mean_log_loss_binary": mean_ll_binary, "mean_log_loss_16": mean_ll_16,
     }
 
     out_path = pathlib.Path(args.checkpoint).parent / args.output_name
@@ -318,9 +371,12 @@ def main():
     def _fmt(v):
         return f"{v:.4f}" if v is not None else "n/a"
 
-    print(f"\nmean roc_auc: all={_fmt(mean_auc)} ({len(scores)} ds), "
+    print(f"\nmean roc_auc:         all={_fmt(mean_auc)} ({len(scores)} ds), "
           f"binary={_fmt(mean_binary)} ({len(binary_names)} ds), "
-          f"16={_fmt(mean_16)} ({len(sixteen_names)} ds)  ->  {out_path}")
+          f"16={_fmt(mean_16)} ({len(sixteen_names)} ds)")
+    print(f"mean balanced_acc:    all={_fmt(mean_ba)}, binary={_fmt(mean_ba_binary)}, 16={_fmt(mean_ba_16)}")
+    print(f"mean log_loss (lower is better): all={_fmt(mean_ll)}, binary={_fmt(mean_ll_binary)}, 16={_fmt(mean_ll_16)}")
+    print(f"  ->  {out_path}")
 
 
 if __name__ == "__main__":
