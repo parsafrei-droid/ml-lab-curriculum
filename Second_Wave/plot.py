@@ -78,6 +78,7 @@ def main():
     compare("val_loss", "validation loss (shared set)", "val_loss.png")
     compare("mean_features", "features per step", "feature_ramp.png")
     compare("mean_classes", "classes per step", "class_ramp.png")
+    compare("mean_context", "in-context training examples per step", "context_ramp.png")
 
 
 if __name__ == "__main__":

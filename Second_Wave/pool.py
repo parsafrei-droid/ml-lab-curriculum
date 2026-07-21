@@ -55,26 +55,57 @@ def n_classes(item):
     return int(item["y"].unique().numel())
 
 
-def combined_scores(items):
-    feats = [it["n_features"] for it in items]
-    cls = [n_classes(it) for it in items]
-    f_lo, f_hi = min(feats), max(feats)
-    c_lo, c_hi = min(cls), max(cls)
-    f_range = max(f_hi - f_lo, 1)
-    c_range = max(c_hi - c_lo, 1)
-    return [(f - f_lo) / f_range + (c - c_lo) / c_range for f, c in zip(feats, cls)]
+AXIS_DEFAULTS = {
+    "curriculum": ["features"],
+    "curriculum_classes": ["classes"],
+    "curriculum_context": ["context"],
+    "curriculum_combined": ["features", "context"],
+}
 
 
-def order_indices(items, mode, seed, restarts=3):
+def axis_values(items, axis):
+    if axis == "features":
+        return [it["n_features"] for it in items]
+    if axis == "classes":
+        return [n_classes(it) for it in items]
+    if axis == "context":
+        return [-it["split"] for it in items]
+    raise ValueError(f"unknown axis {axis!r}")
+
+
+def normalised(values):
+    lo, hi = min(values), max(values)
+    span = hi - lo
+    if span == 0:
+        return [0.0] * len(values)
+    return [(v - lo) / span for v in values]
+
+
+def difficulty_scores(items, axes, weights):
+    total = [0.0] * len(items)
+    for axis, w in zip(axes, weights):
+        for i, v in enumerate(normalised(axis_values(items, axis))):
+            total[i] += w * v
+    return total
+
+
+def ordering_profile(items, order):
+    from scipy.stats import spearmanr
+
+    position = list(range(len(order)))
+    profile = {}
+    for axis in ("features", "classes", "context"):
+        values = axis_values(items, axis)
+        profile[axis] = round(float(spearmanr(position, [values[i] for i in order]).statistic), 3)
+    return profile
+
+
+def order_indices(items, mode, seed, restarts=3, axes=None, weights=None):
     idx = list(range(len(items)))
-    if mode == "curriculum":
-        idx.sort(key=lambda i: items[i]["n_features"])
-    elif mode == "curriculum_classes":
-        idx.sort(key=lambda i: n_classes(items[i]))
-    elif mode == "curriculum_combined":
-        score = combined_scores(items)
-        idx.sort(key=lambda i: score[i])
-    elif mode == "curriculum_restart":
+    if mode == "shuffle":
+        np.random.default_rng(seed).shuffle(idx)
+        return idx
+    if mode == "curriculum_restart":
         ordered = sorted(idx, key=lambda i: items[i]["n_features"])
         buckets = [[] for _ in range(restarts)]
         for j, i in enumerate(ordered):
@@ -82,10 +113,13 @@ def order_indices(items, mode, seed, restarts=3):
         idx = []
         for b in buckets:
             idx += sorted(b, key=lambda i: items[i]["n_features"])
-    elif mode == "shuffle":
-        np.random.default_rng(seed).shuffle(idx)
-    else:
+        return idx
+    if mode not in AXIS_DEFAULTS:
         raise ValueError(f"unknown order {mode!r}")
+    use_axes = axes or AXIS_DEFAULTS[mode]
+    use_weights = weights or [1.0] * len(use_axes)
+    score = difficulty_scores(items, use_axes, use_weights)
+    idx.sort(key=lambda i: score[i])
     return idx
 
 

@@ -22,7 +22,7 @@ from tfmplayground.models.nanotabpfn import NanoTabPFNModel
 from tfmplayground.utils import get_default_device, set_randomness_seed
 
 from plot import plot_run
-from pool import load_pool, n_classes, order_indices
+from pool import load_pool, n_classes, order_indices, ordering_profile
 from prior import build_validation
 
 
@@ -132,7 +132,9 @@ def main():
     eval_every = cfg.get("eval_every", 100)
 
     items = load_pool(BASE / cfg["pool"])
-    order = order_indices(items, cfg["order"], seed, cfg.get("restarts", 3))
+    order = order_indices(items, cfg["order"], seed, cfg.get("restarts", 3),
+                          cfg.get("axes"), cfg.get("weights"))
+    profile = ordering_profile(items, order)
     cursor = 0
 
     model = NanoTabPFNModel(
@@ -154,13 +156,15 @@ def main():
     log_path = out_dir / "log.csv"
     with open(log_path, "w", newline="") as f:
         csv.writer(f).writerow([
-            "step", "mean_features", "mean_classes", "train_loss", "val_loss", "val_acc", "val_auc",
+            "step", "mean_features", "mean_classes", "mean_context",
+            "train_loss", "val_loss", "val_acc", "val_auc",
             "val_auc_easy", "val_auc_medium", "val_auc_hard",
             "cum_time_s", "cum_flops", "peak_gpu_gb",
         ])
 
     print(f"training {name} | order {cfg['order']} | {total_steps} steps x {grad_accum} accum "
           f"| pool {len(items)} | device {device}", flush=True)
+    print(f"ordering profile (spearman of position vs axis): {profile}", flush=True)
     cum_time = 0.0
     cum_flops = 0.0
     overall_peak_gpu = 0.0
@@ -174,6 +178,7 @@ def main():
         used = 0
         step_features = []
         step_classes = []
+        step_context = []
         for _ in range(grad_accum):
             it = items[order[cursor % len(order)]]
             cursor += 1
@@ -186,6 +191,7 @@ def main():
             used += 1
             step_features.append(it["n_features"])
             step_classes.append(n_classes(it))
+            step_context.append(split)
             cum_flops += approx_flops(x.shape[1], it["n_features"], model)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -201,6 +207,7 @@ def main():
             with open(log_path, "a", newline="") as f:
                 csv.writer(f).writerow([
                     step, round(mean(step_features), 2), round(mean(step_classes), 2),
+                    round(mean(step_context), 2),
                     round(running / max(used, 1), 6),
                     round(vl, 6), round(va, 4), fmt(vauc),
                     fmt(r["easy"][2]), fmt(r["medium"][2]), fmt(r["hard"][2]),
@@ -217,6 +224,9 @@ def main():
         "name": name,
         "seed": seed,
         "order": cfg["order"],
+        "axes": cfg.get("axes") or None,
+        "weights": cfg.get("weights") or None,
+        "ordering_profile": profile,
         "device": str(device),
         "total_steps": total_steps,
         "grad_accum": grad_accum,
