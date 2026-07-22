@@ -1,0 +1,178 @@
+{
+  "summary": {
+    "n_features": {
+      "min": 5,
+      "q25": 9,
+      "median": 20,
+      "q75": 37,
+      "max": 112
+    },
+    "n_samples": {
+      "min": 748,
+      "q25": 1010,
+      "median": 1599,
+      "q75": 2446,
+      "max": 5000
+    },
+    "n_train": {
+      "min": 673,
+      "q25": 909,
+      "median": 1439,
+      "q75": 2201,
+      "max": 4500
+    },
+    "n_classes": {
+      "min": 2,
+      "q25": 2,
+      "median": 2,
+      "q75": 3,
+      "max": 8
+    },
+    "n_tasks": 16,
+    "binary_share": 0.625,
+    "pool_regime": {
+      "features": [
+        2,
+        60
+      ],
+      "context": [
+        20,
+        180
+      ],
+      "classes": [
+        2,
+        10
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "task_id": 363614,
+      "name": "anneal",
+      "n_features": 39,
+      "n_samples": 898,
+      "n_classes": 5,
+      "n_train": 808
+    },
+    {
+      "task_id": 363621,
+      "name": "blood-transfusion-service-center",
+      "n_features": 5,
+      "n_samples": 748,
+      "n_classes": 2,
+      "n_train": 673
+    },
+    {
+      "task_id": 363623,
+      "name": "churn",
+      "n_features": 20,
+      "n_samples": 5000,
+      "n_classes": 2,
+      "n_train": 4500
+    },
+    {
+      "task_id": 363626,
+      "name": "credit-g",
+      "n_features": 21,
+      "n_samples": 1000,
+      "n_classes": 2,
+      "n_train": 900
+    },
+    {
+      "task_id": 363629,
+      "name": "diabetes",
+      "n_features": 9,
+      "n_samples": 768,
+      "n_classes": 2,
+      "n_train": 691
+    },
+    {
+      "task_id": 363671,
+      "name": "Fitness_Club",
+      "n_features": 7,
+      "n_samples": 1500,
+      "n_classes": 2,
+      "n_train": 1350
+    },
+    {
+      "task_id": 363674,
+      "name": "hazelnut-spread-contaminant-detection",
+      "n_features": 31,
+      "n_samples": 2400,
+      "n_classes": 2,
+      "n_train": 2160
+    },
+    {
+      "task_id": 363682,
+      "name": "Is-this-a-good-customer",
+      "n_features": 14,
+      "n_samples": 1723,
+      "n_classes": 2,
+      "n_train": 1551
+    },
+    {
+      "task_id": 363684,
+      "name": "Marketing_Campaign",
+      "n_features": 26,
+      "n_samples": 2240,
+      "n_classes": 2,
+      "n_train": 2016
+    },
+    {
+      "task_id": 363685,
+      "name": "maternal_health_risk",
+      "n_features": 7,
+      "n_samples": 1014,
+      "n_classes": 3,
+      "n_train": 913
+    },
+    {
+      "task_id": 363696,
+      "name": "qsar-biodeg",
+      "n_features": 42,
+      "n_samples": 1054,
+      "n_classes": 2,
+      "n_train": 949
+    },
+    {
+      "task_id": 363700,
+      "name": "seismic-bumps",
+      "n_features": 16,
+      "n_samples": 2584,
+      "n_classes": 2,
+      "n_train": 2326
+    },
+    {
+      "task_id": 363702,
+      "name": "splice",
+      "n_features": 61,
+      "n_samples": 3190,
+      "n_classes": 3,
+      "n_train": 2871
+    },
+    {
+      "task_id": 363704,
+      "name": "students_dropout_and_academic_success",
+      "n_features": 37,
+      "n_samples": 4424,
+      "n_classes": 3,
+      "n_train": 3982
+    },
+    {
+      "task_id": 363707,
+      "name": "website_phishing",
+      "n_features": 10,
+      "n_samples": 1353,
+      "n_classes": 3,
+      "n_train": 1218
+    },
+    {
+      "task_id": 363711,
+      "name": "MIC",
+      "n_features": 112,
+      "n_samples": 1699,
+      "n_classes": 8,
+      "n_train": 1529
+    }
+  ]
+}
