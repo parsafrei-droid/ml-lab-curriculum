@@ -1,0 +1,14 @@
+{
+  "name": "pool_baseline_shuffle_binary_early_ramp_e10000_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 10000,
+  "elapsed_s": 170.8,
+  "sec_per_step": 0.0171,
+  "steps_per_sec": 58.56,
+  "peak_gpu_gb": 0.103,
+  "final_train_loss": 0.4604,
+  "final_val_loss": 0.4539,
+  "final_val_acc": 0.7753,
+  "num_outputs": 2
+}
