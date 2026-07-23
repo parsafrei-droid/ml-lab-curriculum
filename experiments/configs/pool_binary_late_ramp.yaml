@@ -1,0 +1,33 @@
+# Pool-build spec - NOT a training config. Consumed only by scripts/build_pool.py.
+# Builds the fixed pool for pool_curriculum_noise_binary_late_ramp.yaml /
+# pool_baseline_shuffle_binary_late_ramp.yaml.
+#
+# Regime layout ported from curriculum_noise_layers_binary.yaml's `schedule:`
+# block ("late ramp": num_layers=6 doesn't start until step 6800/10000 = 68%,
+# vs early_ramp's 3200/10000 = 32% - more time at easy/medium, less hold time
+# at the hardest regime). That file is written for steps: 2500 and was run in
+# production at --steps 10000 (x4 rescale - verified against
+# slurm-c_curriculum_noise_layers_binary_e10000_s43-*.out's actual
+# [curriculum] step transition logs: 0/1200/2400/3200/4400/5600/6800/7600/8800,
+# exact match). Pool-mode has no rescale step, so the already-scaled 9-stage
+# layout is baked in directly here, same as pool_binary_early_ramp.yaml.
+pool_out: pools/binary_late_ramp.pt
+seed: 123
+target_steps: 10000
+batch_size: 32
+num_datapoints: 154
+max_classes: 2
+min_features: 4
+max_features: 4
+
+pool_regimes:
+  0:    {num_layers: 2, hidden_dim: 16,  noise_std: 0.001}
+  1200: {noise_std: 0.1}
+  2400: {noise_std: 0.3}
+  3200: {num_layers: 4, hidden_dim: 64,  noise_std: 0.001}
+  4400: {noise_std: 0.1}
+  5600: {noise_std: 0.3}
+  6800: {num_layers: 6, hidden_dim: 130, noise_std: 0.001}
+  7600: {noise_std: 0.1}
+  8800: {noise_std: 0.3}
+  # holds at num_layers=6/hidden_dim=130/noise_std=0.3 for steps 8800-10000
