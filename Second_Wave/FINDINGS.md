@@ -45,7 +45,7 @@ schedule-free AdamW at lr 0.003892, effective batch 32 via gradient accumulation
 step-based. Validation is a fixed shared set, split into easy/medium/hard feature bands. Evaluation is
 TabArena ROC-AUC (one-vs-rest); after the size filters, 16 of the 51 tasks are actually scored.
 
-## 4. Eight orderings, one pattern
+## 4. Seven orderings, one pattern
 
 Mean TabArena ROC-AUC over 3 seeds. Baseline is the same pool in random order.
 
@@ -58,7 +58,6 @@ Mean TabArena ROC-AUC over 3 seeds. Baseline is the same pool in random order.
 | features, many to few | few features | 0.7623 | −0.029 |
 | features + in-context combined | example-poor end | 0.7506 | −0.041 |
 | in-context examples, many to few | few examples | 0.7424 | −0.049 |
-| classes, few to many | 10 classes | 0.6830 | −0.108 |
 
 The ranking is not explained by difficulty direction. It is explained by where each run *finishes*.
 
@@ -91,34 +90,28 @@ pretrained in.
 |---|---|---|
 | features | 2 – 60 | median 20, q75 37, max 112 |
 | in-context examples | **20 – 180** | **673 – 4500** (median 1439) |
-| classes | 2 – 10, 60% binary | 2 – 8, 62% binary |
 
-Three things follow:
+Two things follow:
 
 1. **There is a large coverage gap in in-context examples.** The model never sees more than 180
    in-context examples during pretraining but is evaluated with 673–4500. On an axis this badly
    uncovered, finishing nearer the evaluation regime matters, which is exactly what the reversal
    showed.
-2. **The class distribution already matches well** (60% vs 62% binary), so the collapse of the class
-   curriculum is not a coverage problem — it is purely an effect of the ending, made worse because
-   class count changes the *output space*: sorting by it starves most of the 10-unit head for the
-   first 60% of training.
-3. **Features do not fit a simple "finish near the evaluation median" rule** — the evaluation median
+2. **Features do not fit a simple "finish near the evaluation median" rule** — the evaluation median
    is 20 features, so ending at 2 is numerically closer than ending at 60, yet ending at 60 wins.
    The better reading is that feature count is a *capacity* axis where the harder regime subsumes the
    easier one: a model that has just been trained on 60 features handles 9 features fine, but not the
    reverse.
 
-So the honest statement is not one rule but three regularities:
+So the honest statement is not one rule but two regularities:
 
 - axes where pretraining does not cover evaluation → finish close to evaluation
 - axes where harder subsumes easier → finish hard
-- axes that change the output space → mismatch is severely punished
 
 ## 7. What we are not claiming
 
-- With 3 seeds the between-seed spread is about 0.01. The **negative** effects (−0.03 to −0.11) are
-  far outside that. The **positive** effects (+0.020, +0.016) are around twice the spread:
+- With 3 seeds the between-seed spread is about 0.01. The **negative** effects (−0.03 to −0.05) are
+  outside that. The **positive** effects (+0.020, +0.016) are around twice the spread:
   consistent and directional, but not conclusive. More seeds would settle it.
 - Only 16 datasets are scored, which is a small evaluation set and contributes to that spread.
 - Everything here is at one model size, one step budget, and one prior. We have not tested whether

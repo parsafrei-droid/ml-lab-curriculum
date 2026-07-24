@@ -28,7 +28,6 @@ def build_pool(out_path, size, min_features, max_features, max_classes, num_data
             "y": y.cpu().contiguous(),
             "split": int(b["train_test_split_index"]),
             "n_features": int(x.shape[2]),
-            "n_classes": int(y.unique().numel()),
         })
     out_path = pathlib.Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,15 +48,8 @@ def load_pool(path):
     return torch.load(path, weights_only=False)["items"]
 
 
-def n_classes(item):
-    if "n_classes" in item:
-        return item["n_classes"]
-    return int(item["y"].unique().numel())
-
-
 AXIS_DEFAULTS = {
     "curriculum": ["features"],
-    "curriculum_classes": ["classes"],
     "curriculum_context": ["context"],
     "curriculum_combined": ["features", "context"],
 }
@@ -66,8 +58,6 @@ AXIS_DEFAULTS = {
 def axis_values(items, axis):
     if axis == "features":
         return [it["n_features"] for it in items]
-    if axis == "classes":
-        return [n_classes(it) for it in items]
     if axis == "context":
         return [-it["split"] for it in items]
     raise ValueError(f"unknown axis {axis!r}")
@@ -94,7 +84,7 @@ def ordering_profile(items, order):
 
     position = list(range(len(order)))
     profile = {}
-    for axis in ("features", "classes", "context"):
+    for axis in ("features", "context"):
         values = axis_values(items, axis)
         profile[axis] = round(float(spearmanr(position, [values[i] for i in order]).statistic), 3)
     return profile
