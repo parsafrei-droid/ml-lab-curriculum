@@ -41,11 +41,12 @@ def fmt(v):
 
 def approx_flops(rows, features, model):
     e = model.embedding_size
-    attention = rows * rows * e
-    feedforward = rows * e * model.mlp_hidden_size
-    encoding = rows * features * e
-    forward = encoding + model.num_layers * (attention + feedforward)
-    return 3.0 * forward
+    cols = features + 1
+    datapoint_attention = cols * rows * rows * e
+    feature_attention = rows * cols * cols * e
+    feedforward = 2 * rows * cols * e * model.mlp_hidden_size
+    per_layer = datapoint_attention + feature_attention + feedforward
+    return 3.0 * model.num_layers * per_layer
 
 
 def gpu_peak_gb(device):
