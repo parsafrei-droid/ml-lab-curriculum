@@ -23,7 +23,7 @@ from tfmplayground.utils import get_default_device, set_randomness_seed
 
 from plot import plot_run
 from pool import load_pool, order_indices, ordering_profile
-from prior import build_validation
+from prior import build_loader, build_validation, next_batch, set_max_features
 
 
 def clean(xs):
@@ -132,11 +132,28 @@ def main():
     grad_accum = cfg.get("grad_accum", 32)
     eval_every = cfg.get("eval_every", 100)
 
-    items = load_pool(BASE / cfg["pool"])
-    order = order_indices(items, cfg["order"], seed, cfg.get("restarts", 3),
-                          cfg.get("axes"), cfg.get("weights"))
-    profile = ordering_profile(items, order)
-    cursor = 0
+    onthefly = cfg.get("onthefly", False)
+    ramp = cfg.get("feature_ramp")
+    min_features = cfg.get("min_features", 2)
+    fixed_features = cfg.get("max_features", 60)
+    if onthefly:
+        loader = build_loader(min_features, ramp[0] if ramp else fixed_features, max_classes,
+                              num_datapoints, num_steps=1, batch_size=1, device=device)
+        profile = None
+        source = f"onthefly ramp {ramp}" if ramp else f"onthefly fixed {fixed_features}"
+    else:
+        items = load_pool(BASE / cfg["pool"])
+        order = order_indices(items, cfg["order"], seed, cfg.get("restarts", 3),
+                              cfg.get("axes"), cfg.get("weights"))
+        profile = ordering_profile(items, order)
+        cursor = 0
+        source = f"pool {len(items)} order {cfg['order']}"
+
+    def feature_cap(step):
+        if not ramp:
+            return fixed_features
+        frac = (step - 1) / max(total_steps - 1, 1)
+        return int(round(ramp[0] + frac * (ramp[1] - ramp[0])))
 
     model = NanoTabPFNModel(
         num_attention_heads=cfg["heads"],
@@ -163,14 +180,16 @@ def main():
             "cum_time_s", "cum_flops", "peak_gpu_gb",
         ])
 
-    print(f"training {name} | order {cfg['order']} | {total_steps} steps x {grad_accum} accum "
-          f"| pool {len(items)} | device {device}", flush=True)
-    print(f"ordering profile (spearman of position vs axis): {profile}", flush=True)
+    print(f"training {name} | {source} | {total_steps} steps x {grad_accum} accum | device {device}", flush=True)
+    if profile is not None:
+        print(f"ordering profile (spearman of position vs axis): {profile}", flush=True)
     cum_time = 0.0
     cum_flops = 0.0
     overall_peak_gpu = 0.0
     gpu_peak_gb(device)
     for step in range(1, total_steps + 1):
+        if onthefly:
+            set_max_features(loader, feature_cap(step))
         model.train()
         optimizer.train()
         t0 = time.time()
@@ -180,18 +199,26 @@ def main():
         step_features = []
         step_context = []
         for _ in range(grad_accum):
-            it = items[order[cursor % len(order)]]
-            cursor += 1
-            x, y, split = it["x"].to(device), it["y"].to(device), it["split"]
+            if onthefly:
+                x, y, split = next_batch(loader)
+                x, y = x.to(device), y.to(device)
+                if torch.isnan(x).any() or torch.isnan(y).any():
+                    continue
+                nf = int(x.shape[2])
+            else:
+                it = items[order[cursor % len(order)]]
+                cursor += 1
+                x, y, split = it["x"].to(device), it["y"].to(device), it["split"]
+                nf = it["n_features"]
             out = model((x, y[:, :split]), train_test_split_index=split).view(-1, model.num_outputs)
             tgt = y[:, split:].reshape(-1).long()
             loss = criterion(out, tgt) / grad_accum
             loss.backward()
             running += loss.item() * grad_accum
             used += 1
-            step_features.append(it["n_features"])
+            step_features.append(nf)
             step_context.append(split)
-            cum_flops += approx_flops(x.shape[1], it["n_features"], model)
+            cum_flops += approx_flops(x.shape[1], nf, model)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         cum_time += time.time() - t0
@@ -221,7 +248,9 @@ def main():
     meta = {
         "name": name,
         "seed": seed,
-        "order": cfg["order"],
+        "source": source,
+        "order": cfg.get("order"),
+        "feature_ramp": ramp,
         "axes": cfg.get("axes") or None,
         "weights": cfg.get("weights") or None,
         "ordering_profile": profile,
@@ -229,7 +258,7 @@ def main():
         "total_steps": total_steps,
         "grad_accum": grad_accum,
         "effective_batch": grad_accum,
-        "pool_size": len(items),
+        "pool_size": None if onthefly else len(items),
         "elapsed_s": round(cum_time, 1),
         "cum_flops": round(cum_flops, 1),
         "peak_gpu_gb": round(overall_peak_gpu, 3),

@@ -73,11 +73,33 @@ def compare(metric, ylabel, fname):
     print(f"saved -> {out / fname}")
 
 
+def compare_vs_flops(fname):
+    runs = load_runs()
+    if not runs:
+        return
+    plt.figure(figsize=(7, 5))
+    for key in sorted(runs):
+        rows = runs[key][0]
+        x = col(rows, "cum_flops")
+        y = col(rows, "val_auc")
+        plt.plot(x, y, marker="o", ms=3, label=key)
+    plt.xlabel("cumulative FLOPs (estimated)")
+    plt.ylabel("validation ROC-AUC (shared set)")
+    plt.legend()
+    plt.tight_layout()
+    out = BASE / "figures"
+    out.mkdir(exist_ok=True)
+    plt.savefig(out / fname, dpi=120)
+    plt.close()
+    print(f"saved -> {out / fname}")
+
+
 def main():
     compare("val_auc", "validation ROC-AUC (shared set)", "val_auc.png")
     compare("val_loss", "validation loss (shared set)", "val_loss.png")
     compare("mean_features", "features per step", "feature_ramp.png")
     compare("mean_context", "in-context training examples per step", "context_ramp.png")
+    compare_vs_flops("val_auc_vs_flops.png")
 
 
 if __name__ == "__main__":
