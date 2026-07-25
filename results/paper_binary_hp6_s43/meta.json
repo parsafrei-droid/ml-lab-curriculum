@@ -1,0 +1,14 @@
+{
+  "name": "paper_binary_hp6_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 210.0,
+  "sec_per_step": 0.084,
+  "steps_per_sec": 11.91,
+  "peak_gpu_gb": 0.595,
+  "final_train_loss": 0.5104,
+  "final_val_loss": 0.4925,
+  "final_val_acc": 0.7485,
+  "num_outputs": 2
+}

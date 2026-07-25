@@ -1,0 +1,14 @@
+{
+  "name": "early_ramp_hp5_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 132.3,
+  "sec_per_step": 0.0529,
+  "steps_per_sec": 18.89,
+  "peak_gpu_gb": 0.33,
+  "final_train_loss": 0.527,
+  "final_val_loss": 0.4728,
+  "final_val_acc": 0.7681,
+  "num_outputs": 2
+}

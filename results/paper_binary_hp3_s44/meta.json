@@ -1,0 +1,14 @@
+{
+  "name": "paper_binary_hp3_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 318.4,
+  "sec_per_step": 0.1273,
+  "steps_per_sec": 7.85,
+  "peak_gpu_gb": 1.67,
+  "final_train_loss": 0.4672,
+  "final_val_loss": 0.4822,
+  "final_val_acc": 0.7493,
+  "num_outputs": 2
+}

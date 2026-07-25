@@ -1,0 +1,14 @@
+{
+  "name": "early_ramp_hp8_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 139.9,
+  "sec_per_step": 0.056,
+  "steps_per_sec": 17.87,
+  "peak_gpu_gb": 0.568,
+  "final_train_loss": 0.4958,
+  "final_val_loss": 0.4988,
+  "final_val_acc": 0.7201,
+  "num_outputs": 2
+}
