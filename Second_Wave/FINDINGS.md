@@ -60,6 +60,26 @@ Mean TabArena ROC-AUC over 3 seeds. Baseline is the same pool in random order.
 | in-context examples, many to few | few examples | 0.7424 | −0.049 |
 
 The ranking is not explained by difficulty direction. It is explained by where each run *finishes*.
+(`figures/tabarena_roc_auc.png` plots this table.)
+
+**Does the result depend on which datasets are scored?** We split the 16 tasks into the 10 binary and
+the 6 multiclass ones (`figures/tabarena_binary_vs_all.png`):
+
+| ordering | all (16) | binary (10) | multiclass (6) |
+|---|---|---|---|
+| features, few to many | 0.811 | 0.799 | 0.830 |
+| in-context examples reversed | 0.807 | 0.799 | 0.819 |
+| baseline | 0.791 | 0.789 | 0.795 |
+| restart | 0.789 | 0.791 | 0.787 |
+| features, many to few | 0.762 | 0.768 | 0.752 |
+| combined | 0.751 | 0.734 | 0.778 |
+| in-context examples, many to few | 0.742 | 0.730 | 0.764 |
+
+The **ranking is stable** across subsets: the two winners beat the baseline on binary, on multiclass,
+and overall; the losers fall below it on all three. So the effect is not an artefact of which datasets
+are scored. The **size** of the effect does differ, though: for the feature curriculum the gain is
++0.010 on the binary subset (the one comparable to the paper) but +0.035 on the multiclass subset, so
+the +0.020 overall is driven more by the multiclass tasks.
 
 ## 5. The decisive test
 
