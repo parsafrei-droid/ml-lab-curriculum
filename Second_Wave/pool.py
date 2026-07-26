@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+import random
 import sys
 
 BASE = pathlib.Path(__file__).parent
@@ -16,6 +17,7 @@ from prior import build_loader
 def build_pool(out_path, size, min_features, max_features, max_classes, num_datapoints, seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
+    random.seed(seed)
     loader = build_loader(min_features, max_features, max_classes, num_datapoints,
                           num_steps=size, batch_size=1, device="cpu")
     items = []

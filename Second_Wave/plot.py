@@ -128,7 +128,45 @@ def compare_vs_flops(fname):
     print(f"saved -> {out / fname}")
 
 
+def flops_headline(fname, keys=("baseline", "curriculum_features"),
+                   labels=("baseline (random order)", "feature curriculum (easy to hard)"),
+                   colors=("#8a8f98", "#3b7dd8")):
+    dirs = {}
+    for path in glob.glob(str(BASE / "results" / "*" / "log.csv")):
+        run_dir = pathlib.Path(path).parent
+        k = re.sub(r"_s\d+$", "", run_dir.name)
+        dirs.setdefault(k, []).append(run_dir)
+    plt.figure(figsize=(7.5, 5))
+    for key, label, color in zip(keys, labels, colors):
+        if key not in dirs:
+            continue
+        xs, ys = [], []
+        for run_dir in dirs[key]:
+            rows = read_log(run_dir / "log.csv")
+            feats = [float(r["mean_features"]) for r in rows]
+            xs.append(cumulative_flops(feats, run_config(run_dir)))
+            ys.append([float(r["val_auc"]) if r["val_auc"] != "" else np.nan for r in rows])
+        x = np.mean(xs, axis=0)
+        y = np.nanmean(ys, axis=0)
+        s = np.nanstd(ys, axis=0)
+        plt.plot(x, y, marker="o", ms=4, lw=2, color=color, label=label)
+        plt.fill_between(x, y - s, y + s, alpha=0.18, color=color, linewidth=0)
+    plt.xscale("log")
+    plt.xlabel("cumulative training compute — estimated FLOPs (log scale)")
+    plt.ylabel("validation ROC-AUC (shared set)")
+    plt.title("Same data, same total compute: the curriculum reaches good\nperformance at a fraction of the compute")
+    plt.legend(loc="lower right", frameon=False)
+    plt.grid(True, which="major", axis="both", alpha=0.15)
+    plt.tight_layout()
+    out = BASE / "figures"
+    out.mkdir(exist_ok=True)
+    plt.savefig(out / fname, dpi=140)
+    plt.close()
+    print(f"saved -> {out / fname}")
+
+
 def main():
+    flops_headline("compute_efficiency.png")
     compare("val_auc", "validation ROC-AUC (shared set)", "val_auc.png")
     compare("val_loss", "validation loss (shared set)", "val_loss.png")
     compare("mean_features", "features per step", "feature_ramp.png")

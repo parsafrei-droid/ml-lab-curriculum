@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 from tfmplayground.external_priors import TabICLPriorDataLoader
@@ -31,9 +33,10 @@ def next_batch(loader):
 
 
 def build_validation(device, max_classes, num_datapoints=200, per_band=32, seed=12345):
-    np_state, torch_state = np.random.get_state(), torch.get_rng_state()
+    np_state, torch_state, py_state = np.random.get_state(), torch.get_rng_state(), random.getstate()
     np.random.seed(seed)
     torch.manual_seed(seed)
+    random.seed(seed)
     try:
         bands = {}
         for name, (lo, hi) in FEATURE_BANDS.items():
@@ -44,3 +47,4 @@ def build_validation(device, max_classes, num_datapoints=200, per_band=32, seed=
     finally:
         np.random.set_state(np_state)
         torch.set_rng_state(torch_state)
+        random.setstate(py_state)
