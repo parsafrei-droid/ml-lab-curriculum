@@ -108,7 +108,33 @@ So the honest statement is not one rule but two regularities:
 - axes where pretraining does not cover evaluation → finish close to evaluation
 - axes where harder subsumes easier → finish hard
 
-## 7. What we are not claiming
+## 7. Compute efficiency
+
+The feature curriculum is not only slightly more accurate — it reaches a given quality using less
+compute. Because the datasets are ordered by feature count, the curriculum spends its early steps on
+small (few-feature) tables, which are cheap, and only reaches the large expensive tables late.
+
+To see this we plot validation ROC-AUC against **estimated FLOPs** (floating-point operations — a
+hardware-independent measure of how much arithmetic the model did), instead of against steps. FLOPs
+are recomputed per step from the actual feature counts the model processed, using the model's real
+architecture (two attentions per layer: one across rows, one across columns, so cost grows with both
+the number of rows and the number of features).
+
+`figures/compute_efficiency.png` (baseline vs feature curriculum) and
+`figures/val_auc_vs_flops.png` (all orderings) show the result: the feature curriculum sits up and to
+the left — it reaches, for example, ~0.58 validation ROC-AUC at roughly a third of the FLOPs the
+random-order baseline needs for the same score. Both use the same 80,000 datasets and the same total
+compute by the end; the curriculum just front-loads the cheap work.
+
+**Important scope of this claim.** This is measured on the fixed pool: the same data, ordered cheap-
+first vs random. It is a real, measured efficiency result. It is *not* a claim about an "on-the-fly"
+setup where a baseline trains on full-size tables throughout — we did not complete that run (on-the-
+fly data generation is CPU-bound and timed out on the short queue). Note also that an on-the-fly
+feature ramp is a *different* schedule from the pool ordering (a widening `[2, cap]` window that always
+includes easy tables and ends on a mix, versus the pool's narrow bands that end on pure hard tables),
+so its accuracy cannot be assumed equal to the pool result without running it.
+
+## 8. What we are not claiming
 
 - With 3 seeds the between-seed spread is about 0.01. The **negative** effects (−0.03 to −0.05) are
   outside that. The **positive** effects (+0.020, +0.016) are around twice the spread:
@@ -116,13 +142,16 @@ So the honest statement is not one rule but two regularities:
 - Only 16 datasets are scored, which is a small evaluation set and contributes to that spread.
 - Everything here is at one model size, one step budget, and one prior. We have not tested whether
   the effect survives scale.
+- The compute-efficiency figure is the fixed-pool result; the on-the-fly variant is unrun (section 7).
 
-## 8. What follows
+## 9. What follows
 
 - Raise `num_datapoints` in the pool so pretraining covers the evaluation range of in-context
   examples. Prediction: the in-context axis effect shrinks. This is a direct test of the account in
   section 6.
 - More seeds on the two positive comparisons.
+- Optionally, run the on-the-fly feature ramp on a long queue slot to confirm the efficiency story in
+  the generate-as-you-go setting.
 - If the account holds, the practical advice is simple and slightly counterintuitive: **do not design
   a curriculum around difficulty. Design it around the regime you intend to deploy in, and end
   there.**
