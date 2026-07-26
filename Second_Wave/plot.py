@@ -1,5 +1,6 @@
 import csv
 import glob
+import json
 import pathlib
 import re
 
@@ -165,7 +166,46 @@ def flops_headline(fname, keys=("baseline", "curriculum_features"),
     print(f"saved -> {out / fname}")
 
 
+def tabarena_summary(fname="tabarena_roc_auc.png"):
+    scores = {}
+    for path in glob.glob(str(BASE / "results" / "*" / "tabarena_scores.json")):
+        key = re.sub(r"_s\d+$", "", pathlib.Path(path).parent.name)
+        try:
+            scores.setdefault(key, []).append(json.load(open(path))["mean_roc_auc"])
+        except Exception:
+            continue
+    if not scores:
+        return
+    items = sorted(scores.items(), key=lambda kv: np.mean(kv[1]))
+    labels = [k for k, _ in items]
+    means = np.array([np.mean(v) for _, v in items])
+    stds = np.array([np.std(v) for _, v in items])
+    base = np.mean(scores["baseline"]) if "baseline" in scores else means.mean()
+    colors = ["#8a8f98" if k == "baseline" else ("#3b7dd8" if means[i] >= base else "#c2544d")
+              for i, k in enumerate(labels)]
+    y = np.arange(len(labels))
+    plt.figure(figsize=(8, 5))
+    plt.axvline(base, ls=":", c="#8a8f98", lw=1, label="baseline")
+    plt.errorbar(means, y, xerr=stds, fmt="o", ms=7, capsize=4, lw=0, elinewidth=1.5,
+                 ecolor="#aaaaaa", mfc="white", mec="none")
+    for i in range(len(labels)):
+        plt.plot(means[i], y[i], "o", ms=7, color=colors[i])
+        plt.text(means[i], y[i] + 0.22, f"{means[i]:.3f}", ha="center", fontsize=9)
+    plt.yticks(y, labels)
+    plt.xlabel("TabArena mean ROC-AUC  (3 seeds, dot = mean, bar = std)")
+    lo, hi = means.min() - stds.max(), means.max() + stds.max()
+    plt.xlim(lo - 0.02, hi + 0.02)
+    plt.legend(loc="lower right", frameon=False)
+    plt.tight_layout()
+    out = BASE / "figures"
+    out.mkdir(exist_ok=True)
+    plt.savefig(out / fname, dpi=140)
+    plt.close()
+    print(f"saved -> {out / fname}")
+
+
 def main():
+    tabarena_summary("tabarena_roc_auc.png")
     flops_headline("compute_efficiency.png")
     compare("val_auc", "validation ROC-AUC (shared set)", "val_auc.png")
     compare("val_loss", "validation loss (shared set)", "val_loss.png")
