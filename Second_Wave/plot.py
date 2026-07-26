@@ -204,8 +204,52 @@ def tabarena_summary(fname="tabarena_roc_auc.png"):
     print(f"saved -> {out / fname}")
 
 
+def tabarena_split(fname="tabarena_binary_vs_all.png"):
+    classes = {t["name"]: t["n_classes"]
+               for t in json.load(open(BASE / "figures" / "regime_gap.json"))["tasks"]}
+    scopes = [("all", "#333333"), ("binary", "#3b7dd8"), ("multiclass", "#c2544d")]
+    groups = {}
+    for path in glob.glob(str(BASE / "results" / "*" / "tabarena_scores.json")):
+        key = re.sub(r"_s\d+$", "", pathlib.Path(path).parent.name)
+        per = json.load(open(path)).get("per_dataset", {})
+        if not per:
+            continue
+        picks = {
+            "all": list(per.values()),
+            "binary": [v for n, v in per.items() if classes.get(n) == 2],
+            "multiclass": [v for n, v in per.items() if classes.get(n, 0) > 2],
+        }
+        groups.setdefault(key, {s: [] for s, _ in scopes})
+        for s, _ in scopes:
+            groups[key][s].append(np.mean(picks[s]))
+    if not groups:
+        return
+    order = sorted(groups, key=lambda k: np.mean(groups[k]["all"]))
+    y = np.arange(len(order))
+    plt.figure(figsize=(8.5, 5.5))
+    for j, (scope, color) in enumerate(scopes):
+        off = (j - 1) * 0.24
+        means = np.array([np.mean(groups[k][scope]) for k in order])
+        stds = np.array([np.std(groups[k][scope]) for k in order])
+        plt.errorbar(means, y + off, xerr=stds, fmt="o", ms=6, capsize=3, lw=0,
+                     elinewidth=1.2, color=color, label=scope)
+    if "baseline" in groups:
+        plt.axvline(np.mean(groups["baseline"]["all"]), ls=":", c="#888888", lw=1)
+    plt.yticks(y, [k.replace("curriculum_", "") for k in order])
+    plt.xlabel("TabArena ROC-AUC  (3 seeds, dot = mean, bar = std)")
+    plt.title("Does the result depend on the evaluation subset? (binary vs all vs multiclass)")
+    plt.legend(loc="lower right", frameon=False)
+    plt.tight_layout()
+    out = BASE / "figures"
+    out.mkdir(exist_ok=True)
+    plt.savefig(out / fname, dpi=140)
+    plt.close()
+    print(f"saved -> {out / fname}")
+
+
 def main():
     tabarena_summary("tabarena_roc_auc.png")
+    tabarena_split("tabarena_binary_vs_all.png")
     flops_headline("compute_efficiency.png")
     compare("val_auc", "validation ROC-AUC (shared set)", "val_auc.png")
     compare("val_loss", "validation loss (shared set)", "val_loss.png")
