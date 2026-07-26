@@ -7,8 +7,31 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
 
 BASE = pathlib.Path(__file__).parent
+
+
+def run_config(run_dir):
+    path = pathlib.Path(run_dir) / "config.yaml"
+    return yaml.safe_load(open(path)) if path.exists() else {}
+
+
+def cumulative_flops(feats, cfg):
+    e = cfg.get("embedding_size", 96)
+    h = cfg.get("hidden_size", 192)
+    layers = cfg.get("layers", 3)
+    accum = cfg.get("grad_accum", 32)
+    npts = cfg.get("num_datapoints", 200)
+    interval = cfg.get("eval_every", 100)
+    total = 0.0
+    out = []
+    for feat in feats:
+        cols = feat + 1
+        per = cols * npts * npts * e + npts * cols * cols * e + 2 * npts * cols * e * h
+        total += 3.0 * layers * per * accum * interval
+        out.append(total)
+    return out
 
 
 def read_log(path):
@@ -74,16 +97,27 @@ def compare(metric, ylabel, fname):
 
 
 def compare_vs_flops(fname):
-    runs = load_runs()
-    if not runs:
+    dirs = {}
+    for path in glob.glob(str(BASE / "results" / "*" / "log.csv")):
+        run_dir = pathlib.Path(path).parent
+        key = re.sub(r"_s\d+$", "", run_dir.name)
+        dirs.setdefault(key, []).append(run_dir)
+    if not dirs:
         return
     plt.figure(figsize=(7, 5))
-    for key in sorted(runs):
-        rows = runs[key][0]
-        x = col(rows, "cum_flops")
-        y = col(rows, "val_auc")
+    for key in sorted(dirs):
+        curves = []
+        for run_dir in dirs[key]:
+            rows = read_log(run_dir / "log.csv")
+            feats = [float(r["mean_features"]) for r in rows]
+            x = cumulative_flops(feats, run_config(run_dir))
+            y = [float(r["val_auc"]) if r["val_auc"] != "" else np.nan for r in rows]
+            curves.append((x, y))
+        x = np.mean([c[0] for c in curves], axis=0)
+        y = np.nanmean([c[1] for c in curves], axis=0)
         plt.plot(x, y, marker="o", ms=3, label=key)
-    plt.xlabel("cumulative FLOPs (estimated)")
+    plt.xscale("log")
+    plt.xlabel("cumulative FLOPs (estimated, log scale)")
     plt.ylabel("validation ROC-AUC (shared set)")
     plt.legend()
     plt.tight_layout()
