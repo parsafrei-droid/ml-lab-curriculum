@@ -60,18 +60,16 @@ def figure(rows):
     panels = [
         ("n_features", "number of features", POOL["features"]),
         ("n_train", "in-context training examples", POOL["context"]),
-        ("n_classes", "number of classes", POOL["classes"]),
     ]
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
     for ax, (key, label, span) in zip(axes, panels):
         v = [r[key] for r in rows]
         ax.hist(v, bins=20, color="tab:blue", alpha=0.75, label="TabArena tasks")
         ax.axvspan(span[0], span[1], color="tab:orange", alpha=0.25, label="pretraining pool")
         ax.set_xlabel(label)
         ax.set_ylabel("tasks")
-        if key != "n_classes":
-            ax.set_xscale("log")
-        ax.legend(fontsize=8)
+        ax.set_xscale("log")
+        ax.legend(fontsize=9)
     fig.suptitle("Evaluation regime (TabArena) vs pretraining regime (our pool)")
     fig.tight_layout()
     out = BASE / "figures"
