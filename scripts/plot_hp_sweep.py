@@ -1,26 +1,24 @@
-"""Plot scripts/hp_random_search.sh's learning curves and the lr-mistuning trend.
+"""Plot the hp sweep's learning curves and lr-mistuning trend, multi-seed.
 
-Two figures, written to experiments/:
+Reads experiments/hp_sweep_data_multiseed.json (built from every
+results/{paper_binary,early_ramp}_hp<i>_s<seed>/ run) and writes two figures
+to experiments/, both showing mean-across-seeds with the min-max seed range:
+
   hp_sweep_curves.png   - one small-multiple per trial: toy_tabarena.csv's
-                           real-OpenML AUC over training steps, baseline vs
-                           curriculum. This is the per-checkpoint signal that
-                           tracked the final real TabArena result far better
-                           than the synthetic val_acc curve did for this
-                           sweep (see rank_hp_sweep.py's summary) - it's the
-                           one worth looking at to see *when* a run
-                           converges/diverges, not just the final number.
+                          real-OpenML AUC over training steps, baseline vs
+                          curriculum, mean line + shaded seed-range band.
   hp_sweep_lr_trend.png - final TabArena mean_roc_auc_binary delta
-                          (curriculum - baseline) vs signed log10(lr/optimum),
-                          so the too-low (monotonic gain) vs too-high (cliff:
-                          rescue right at the edge, no rescue further out)
-                          shape is visible in one plot.
+                          (curriculum - baseline) vs signed log10(lr/optimum):
+                          mean point + min-max whisker per config. The
+                          too-low-lr side's consistent gains and the
+                          too-high-lr side's seed-flipping (hp0: +0.27 to
+                          -0.25) read directly off the whiskers.
 
 Trials are sorted/labelled the same way as scripts/rank_hp_sweep.py.
 
     python scripts/plot_hp_sweep.py
 """
 
-import csv
 import json
 import math
 import pathlib
@@ -28,54 +26,31 @@ import pathlib
 import matplotlib.pyplot as plt
 
 BASE = pathlib.Path(__file__).parent.parent
-RESULTS = BASE / "results"
-MANIFEST = BASE / "experiments" / "configs" / "hp_sweep" / "manifest.csv"
+DATA = BASE / "experiments" / "hp_sweep_data_multiseed.json"
 OUT = BASE / "experiments"
-PAPER_OPTIMUM_LR = 0.003892
 
 BASE_COLOR = "#2a78d6"   # palette slot 1 (blue) - baseline / control, fixed order
 CURR_COLOR = "#eb6834"   # palette slot 2 (orange) - curriculum / treatment
 
 
-def load_toy_curve(name):
-    p = RESULTS / name / "toy_tabarena.csv"
-    if not p.exists():
-        return [], []
-    rows = list(csv.reader(p.open()))[1:]
-    steps = [int(s) for s, _ in rows]
-    aucs = [float(a) for _, a in rows]
-    return steps, aucs
-
-
-def load_tabarena_auc(name):
-    p = RESULTS / name / "tabarena_scores.json"
-    if not p.exists():
-        return None
-    d = json.loads(p.read_text())
-    return d.get("mean_roc_auc_binary", d.get("mean_roc_auc"))
-
-
 def main():
-    rows = list(csv.DictReader(MANIFEST.open()))
-    trials = []
-    for r in rows:
-        trial, lr, ndp = int(r["trial"]), float(r["lr"]), int(r["num_datapoints"])
-        dist = abs(math.log10(lr) - math.log10(PAPER_OPTIMUM_LR))
-        trials.append((dist, trial, lr, ndp))
-    trials.sort(key=lambda t: -t[0])
+    data = json.loads(DATA.read_text())
+    trials = data["trials"]  # already sorted most-lr-mistuned first
+    n_seeds = len(data["overall"]["seeds"])
 
-    # --- Figure 1: per-trial toy-TabArena curves, baseline vs curriculum ---
+    # --- Figure 1: per-trial toy-TabArena mean curves with seed-range bands ---
     n = len(trials)
     ncols = 2
     nrows = math.ceil(n / ncols)
     fig, axes = plt.subplots(nrows, ncols, figsize=(11, 2.6 * nrows), sharex=True)
     axes = axes.flatten()
-    for ax, (dist, trial, lr, ndp) in zip(axes, trials):
-        b_steps, b_aucs = load_toy_curve(f"paper_binary_hp{trial}_s42")
-        c_steps, c_aucs = load_toy_curve(f"early_ramp_hp{trial}_s42")
-        ax.plot(b_steps, b_aucs, color=BASE_COLOR, lw=2, label="baseline")
-        ax.plot(c_steps, c_aucs, color=CURR_COLOR, lw=2, label="curriculum")
-        ax.set_title(f"hp{trial}  (lr={lr:.4g}, n={ndp})", fontsize=9)
+    for ax, t in zip(axes, trials):
+        steps = t["steps"]
+        ax.fill_between(steps, t["base_toy_lo"], t["base_toy_hi"], color=BASE_COLOR, alpha=0.16, linewidth=0)
+        ax.fill_between(steps, t["curr_toy_lo"], t["curr_toy_hi"], color=CURR_COLOR, alpha=0.16, linewidth=0)
+        ax.plot(steps, t["base_toy_mean"], color=BASE_COLOR, lw=2, label="baseline (mean)")
+        ax.plot(steps, t["curr_toy_mean"], color=CURR_COLOR, lw=2, label="curriculum (mean)")
+        ax.set_title(f"hp{t['trial']}  (lr={t['lr']:.4g}, n={t['num_datapoints']})", fontsize=9)
         ax.set_ylim(0.35, 1.02)
         ax.tick_params(labelsize=8)
     for ax in axes[n:]:
@@ -84,32 +59,28 @@ def main():
     fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False, bbox_to_anchor=(0.5, 1.02))
     fig.supxlabel("training steps")
     fig.supylabel("toy-TabArena ROC-AUC (real OpenML, per checkpoint)")
-    fig.suptitle("hp sweep: baseline vs curriculum, sorted by |log10(lr/optimum)| descending", y=1.05, fontsize=11)
+    fig.suptitle(f"hp sweep: baseline vs curriculum, mean of {n_seeds} seeds (band = seed min-max), "
+                 "sorted by |log10(lr/optimum)| descending", y=1.05, fontsize=11)
     fig.tight_layout()
     fig.savefig(OUT / "hp_sweep_curves.png", dpi=120, bbox_inches="tight")
     plt.close(fig)
 
-    # --- Figure 2: final TabArena AUC delta vs signed lr-distance from optimum ---
+    # --- Figure 2: final TabArena AUC delta vs signed lr-distance, mean + range ---
     fig2, ax2 = plt.subplots(figsize=(6.5, 4.5))
-    xs, ys, labels = [], [], []
-    for dist, trial, lr, ndp in trials:
-        b_auc = load_tabarena_auc(f"paper_binary_hp{trial}_s42")
-        c_auc = load_tabarena_auc(f"early_ramp_hp{trial}_s42")
-        if b_auc is None or c_auc is None:
-            continue
-        signed_dist = math.log10(lr) - math.log10(PAPER_OPTIMUM_LR)  # + = too high, - = too low
-        xs.append(signed_dist)
-        ys.append(c_auc - b_auc)
-        labels.append(f"hp{trial}")
-    colors = [CURR_COLOR if y > 0 else BASE_COLOR for y in ys]
     ax2.axhline(0, color="#888888", lw=1, ls="--")
     ax2.axvline(0, color="#888888", lw=1, ls="--")
-    ax2.scatter(xs, ys, c=colors, s=70, zorder=3, edgecolor="white", linewidth=0.5)
-    for x, y, lbl in zip(xs, ys, labels):
-        ax2.annotate(lbl, (x, y), textcoords="offset points", xytext=(6, 4), fontsize=8)
+    for t in trials:
+        if t["delta_mean"] is None:
+            continue
+        x = t["log_dist"]
+        c = CURR_COLOR if t["delta_mean"] > 0 else BASE_COLOR
+        ax2.plot([x, x], [t["delta_min"], t["delta_max"]], color=c, lw=2, alpha=0.55, zorder=2)
+        ax2.scatter([x], [t["delta_mean"]], c=c, s=70, zorder=3, edgecolor="white", linewidth=0.5)
+        ax2.annotate(f"hp{t['trial']}", (x, t["delta_mean"]), textcoords="offset points",
+                     xytext=(6, 4), fontsize=8)
     ax2.set_xlabel("log10(lr / paper optimum)  [negative = too low, positive = too high]")
     ax2.set_ylabel("curriculum - baseline  (TabArena mean_roc_auc_binary)")
-    ax2.set_title("Curriculum's edge vs how mistuned lr is")
+    ax2.set_title(f"Curriculum's edge vs lr mistuning\n(mean of {n_seeds} seeds, whisker = seed min-max)", fontsize=11)
     fig2.tight_layout()
     fig2.savefig(OUT / "hp_sweep_lr_trend.png", dpi=120)
     plt.close(fig2)
