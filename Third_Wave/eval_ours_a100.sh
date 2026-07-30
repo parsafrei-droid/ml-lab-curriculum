@@ -1,5 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=tw_ours
+# Evaluate one Phase-A checkpoint on TabArena. Kept separate from training so each job
+# stays inside the 30-minute dev_gpu_a100_il limit.
+#   usage: sbatch eval_ours_a100.sh baseline_a100_s42
+#SBATCH --job-name=tw_eval
 #SBATCH --partition=dev_gpu_a100_il
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
@@ -8,20 +11,13 @@
 #SBATCH --time=00:30:00
 #SBATCH --output=slurm-%x-%j.out
 set -e
-# Slurm copies the batch script into /var/spool/slurmd, so $0 does not point at the
-# repo here; use an absolute path instead of "$(dirname "$0")".
+name="$1"
 REPO=/pfs/data6/home/fr/fr_fr/fr_or51/projects/ml-lab-curriculum
 cd "$REPO/Second_Wave"
 source /usr/share/lmod/lmod/init/bash
 module load devel/python/3.12.3-gnu-14.2
 module load devel/cuda/12.8
-source ../.venv/bin/activate
+source "$REPO/.venv/bin/activate"
 
 python -c "import torch; print('GPU:', torch.cuda.get_device_name())"
-
-SEED="${SEED:-42}"
-for cfg in baseline curriculum_features; do
-  name="${cfg}_a100_s${SEED}"
-  python train.py --config configs/$cfg.yaml --name $name --seed $SEED
-  python evaluate.py --checkpoint results/$name/checkpoint.pth --max-n-samples 5000
-done
+python evaluate.py --checkpoint "results/$name/checkpoint.pth" --max-n-samples 5000

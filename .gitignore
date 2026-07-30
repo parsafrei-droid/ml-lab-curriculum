@@ -40,3 +40,6 @@ Thumbs.db
 uv.lock
 
 *.out
+
+# Third Wave: upstream speedrun repo is cloned locally (12GB dump in its workdir/)
+Third_Wave/modded-nanotabpfn/

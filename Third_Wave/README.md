@@ -39,8 +39,20 @@ The comparisons this enables:
 ## What "feature curriculum" means for modded (run 4)
 
 modded trains from a small pre-generated dump. For run 4 we do not change the model or recipe — we only
-feed the dump's datasets in order of increasing feature count instead of the default order. So run 4 is
-run 3 with the datasets sorted by `n_features` ascending; nothing else differs.
+feed the datasets in order of increasing feature count instead of the default order.
+
+**Why it is not a strict sort of the whole dump.** The dump holds 256,000 datasets, but a run consumes
+only `steps * batch_size` = 64 per epoch, and the reference record reaches the target in 57 epochs —
+3,648 datasets. A strict `argsort` over all 256k would hand those 3,648 slots entirely to `n_features`
+1–2 (the first 20-feature dataset would not appear until epoch 3,887 of 4,000). Run 4 would then train
+on a truncated slice of the distribution and never converge, so it would differ from run 3 in *which*
+data it sees — not just the order, which is the one thing we want to vary.
+
+Instead run 4 draws a budget-sized subset (`curriculum_epochs * steps * batch_size` datasets, sampled
+without replacement across the full width distribution) and sorts **that** ascending. The result is a
+smooth ramp from `n_features` 2 → 20 over the run, spanning the same distribution run 3 sees, with
+mean per-batch feature width 11.0 vs 14.0 for the default order (**21.6% narrower**). Same data, same
+count, only the order differs.
 
 ## Honest expectation
 
