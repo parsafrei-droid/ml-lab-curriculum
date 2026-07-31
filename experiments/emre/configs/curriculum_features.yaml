@@ -1,0 +1,15 @@
+# ABLATION - ramp ONLY the feature count, everything else pinned at the full
+# regime. This is the brief's original "feature curriculum" idea. The sweep says
+# features alone don't move difficulty, so we expect this ~= baseline. Pairs with
+# curriculum_noise to show single-knob curricula aren't enough.
+name: curriculum_features
+seed: 42
+steps: 2000       # total training steps
+batch_size: 32
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0:    {min_features: 2, max_features: 4,  max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128}
+  700:  {max_features: 20}
+  1400: {max_features: 60}

@@ -1,0 +1,18 @@
+# Baseline for the late-ramp pool ablation: the SAME pool as
+# pool_curriculum_noise_binary_late_ramp.yaml (pools/binary_late_ramp.pt),
+# shuffled instead of ordered easy->hard.
+name: pool_baseline_shuffle_binary_late_ramp
+seed: 42
+steps: 10000
+batch_size: 32
+lr: 0.003892
+num_datapoints: 154
+max_classes: 2
+
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+pool: pools/binary_late_ramp.pt
+order: shuffle

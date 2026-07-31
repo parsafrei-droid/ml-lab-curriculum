@@ -1,0 +1,12 @@
+# BASELINE (control) - no curriculum. The prior stays at the full/hard regime
+# the whole run, i.e. the normal way nanoTabPFN is trained. Every curriculum
+# scenario ends at this same regime, so the only difference is the *order*.
+name: baseline
+seed: 42
+steps: 2000       # total training steps (bump for the final run)
+batch_size: 32
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0: {min_features: 2, max_features: 60, max_classes: 10, noise_std: 0.3, num_layers: 6, hidden_dim: 128}

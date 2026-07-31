@@ -1,0 +1,37 @@
+# Pool-build spec - NOT a training config. Consumed only by scripts/build_pool.py.
+# Builds the fixed pool for pool_curriculum_noise_binary_early_ramp.yaml.
+#
+# Regime layout ported from curriculum_noise_layers_binary_early_ramp.yaml's
+# `schedule:` block, already scaled x4 (that config is written for steps: 2500
+# and was run in production at --steps 10000, which proportionally rescales
+# every threshold - 100->400, 200->800, ... 1100->4400). Pool-mode has no
+# rescale step (see run_pool.py's --steps hard-error), so the already-scaled
+# thresholds are baked in directly here. This is a SEPARATE pool from
+# pool_binary_main.yaml: a pool's regime segments are sized at build time
+# (threshold delta x batch_size), so a different threshold layout needs its
+# own pool, not just a different order over the existing one.
+pool_out: pools/binary_early_ramp.pt
+seed: 123
+target_steps: 10000
+batch_size: 32
+num_datapoints: 154
+max_classes: 2
+min_features: 4
+max_features: 4
+
+pool_regimes:
+  0:    {num_layers: 2, hidden_dim: 16,  noise_std: 0.001}
+  400:  {noise_std: 0.01}
+  800:  {noise_std: 0.1}
+  1200: {noise_std: 0.3}
+  1600: {num_layers: 4, hidden_dim: 64,  noise_std: 0.001}
+  2000: {noise_std: 0.01}
+  2400: {noise_std: 0.1}
+  2800: {noise_std: 0.3}
+  3200: {num_layers: 6, hidden_dim: 130, noise_std: 0.001}
+  3600: {noise_std: 0.01}
+  4000: {noise_std: 0.1}
+  4400: {noise_std: 0.3}
+  # holds at num_layers=6/hidden_dim=130/noise_std=0.3 (paper_binary.yaml's
+  # ceiling) for steps 4400-10000 - same post-ramp hold as the scheduler-mode
+  # early-ramp version

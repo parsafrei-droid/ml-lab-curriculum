@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_features_e50_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 5000,
+  "elapsed_s": 215.9,
+  "sec_per_step": 0.0432,
+  "steps_per_sec": 23.16,
+  "peak_gpu_gb": 1.968,
+  "final_train_loss": 0.9586,
+  "final_val_loss": 0.589,
+  "final_val_acc": 0.7428,
+  "num_outputs": 10
+}

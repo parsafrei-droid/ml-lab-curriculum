@@ -1,0 +1,11 @@
+trial,lr,num_datapoints,baseline_name,curriculum_name
+0,0.00531856,56,paper_binary_hp0_s42,early_ramp_hp0_s42
+1,0.0100328,112,paper_binary_hp1_s42,early_ramp_hp1_s42
+2,0.000400349,238,paper_binary_hp2_s42,early_ramp_hp2_s42
+3,0.000189074,239,paper_binary_hp3_s42,early_ramp_hp3_s42
+4,0.0255838,72,paper_binary_hp4_s42,early_ramp_hp4_s42
+5,0.00392393,58,paper_binary_hp5_s42,early_ramp_hp5_s42
+6,0.000120343,105,paper_binary_hp6_s42,early_ramp_hp6_s42
+7,0.000424566,204,paper_binary_hp7_s42,early_ramp_hp7_s42
+8,0.000117929,100,paper_binary_hp8_s42,early_ramp_hp8_s42
+9,0.00856082,229,paper_binary_hp9_s42,early_ramp_hp9_s42

@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_slow_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 2000,
+  "elapsed_s": 77.3,
+  "sec_per_step": 0.0386,
+  "steps_per_sec": 25.88,
+  "peak_gpu_gb": 1.922,
+  "final_train_loss": 0.9803,
+  "final_val_loss": 1.1639,
+  "final_val_acc": 0.5699,
+  "num_outputs": 10
+}

@@ -1,0 +1,14 @@
+{
+  "name": "baseline_e10000_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 10000,
+  "elapsed_s": 369.6,
+  "sec_per_step": 0.037,
+  "steps_per_sec": 27.05,
+  "peak_gpu_gb": 65.517,
+  "final_train_loss": 0.9227,
+  "final_val_loss": 0.7052,
+  "final_val_acc": 0.6743,
+  "num_outputs": 10
+}

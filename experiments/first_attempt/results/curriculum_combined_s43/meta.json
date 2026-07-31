@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 2000,
+  "elapsed_s": 77.0,
+  "sec_per_step": 0.0385,
+  "steps_per_sec": 25.96,
+  "peak_gpu_gb": 1.943,
+  "final_train_loss": 1.0718,
+  "final_val_loss": 0.6169,
+  "final_val_acc": 0.7114,
+  "num_outputs": 10
+}

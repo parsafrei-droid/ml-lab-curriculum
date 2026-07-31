@@ -1,0 +1,25 @@
+# PAPER REFERENCE — nanoTabPFN as published (Pfefferle et al., 2025, Table 1).
+# Not part of the curriculum experiment; it's a context bar for the plots.
+#
+# Their exact recipe: 3-layer / 96-emb / 4-head / 192-hidden model, lr 0.003892,
+# batch 32, ~2500 steps, on a tiny TabICL prior (4 features, ~150 rows). One
+# deviation: they train binary (2 classes); we set max_classes 10 so the head is
+# multiclass and the model can be scored on our (multiclass) TabArena eval, i.e.
+# this shows "the paper's small model + recipe, in OUR evaluation" — a model-size
+# reference, not a reproduction of their 0.68 binary number.
+name: paper_small
+seed: 42
+steps: 2500         # as in the paper
+batch_size: 32
+lr: 0.003892
+num_datapoints: 150
+
+# paper architecture (overrides our larger defaults)
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+# no curriculum — a single fixed stage at the paper's small prior scale
+schedule:
+  0: {min_features: 3, max_features: 4, max_classes: 10}

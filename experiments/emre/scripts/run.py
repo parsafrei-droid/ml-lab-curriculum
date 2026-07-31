@@ -1,0 +1,436 @@
+"""Train one curriculum scenario from a YAML config.
+
+This is what each teammate runs on their own machine / the cluster:
+
+    python scripts/run.py --config experiments/configs/scenario_A.yaml
+
+It reads the config, builds the TabICL prior, wraps it in the curriculum
+scheduler, and hands the whole thing to TFM-Playground's own train() loop. The
+scheduler advances the difficulty as the loop pulls batches, so we don't touch
+the upstream training code at all.
+
+Outputs land in results/<name>/ :
+    checkpoint.pth   - the trained model (architecture + weights)
+    loss.csv         - loss per step (logged every CHECKPOINT_STEPS steps)
+    loss_curve.png   - that same loss, plotted
+    meta.json        - seed, total steps, wall-clock time
+"""
+
+import argparse
+import json
+import pathlib
+import shutil
+import sys
+import time
+
+BASE = pathlib.Path(__file__).parent.parent
+sys.path.insert(0, str(BASE / "TFM-Playground"))
+sys.path.insert(0, str(BASE / "tabicl"))
+sys.path.insert(0, str(BASE))
+
+import matplotlib.pyplot as plt
+import torch
+import yaml
+from sklearn.metrics import roc_auc_score
+from torch import nn
+
+from curriculum.prior import make_prior, make_validation_batches, make_banded_validation_batches
+from curriculum.scheduler import CurriculumScheduler
+from tfmplayground.callbacks import Callback
+from tfmplayground.models.nanotabpfn import NanoTabPFNModel
+from tfmplayground.train import train
+from tfmplayground.utils import get_default_device, set_randomness_seed
+
+# TFM-Playground's train() loop is written in terms of "epochs" (one checkpoint
+# + callback firing per pass over the prior). Synthetic data has no notion of a
+# "full pass", so everywhere outside of this one constant we think and log in
+# terms of steps only: configs specify a single total `steps`, and this is just
+# the (internal, fixed) number of steps between two checkpoints/log rows. It is
+# not a tunable per-scenario knob - it's the unit train() forces on us.
+CHECKPOINT_STEPS = 100
+
+
+class LossLoggerCallback(Callback):
+    """Writes loss per step to a CSV and draws the loss curve at the end.
+
+    We deliberately keep TabArena out of training - evaluating on ~300 real
+    datasets every checkpoint would dwarf the training time. Evaluation happens
+    once, afterwards, via eval_tabarena.py.
+    """
+
+    def __init__(self, out_dir, device, resume=False):
+        self.out_dir = out_dir
+        self.device = device
+        self.rows = []  # (step, loss)
+        self.cum_time = 0.0
+        self.peak_gpu_gb = 0.0
+        self.csv_path = out_dir / "loss.csv"
+        # On resume, keep the rows/time already written by earlier chunks and
+        # append; only start a fresh file for a brand-new run.
+        if resume and self.csv_path.exists():
+            with self.csv_path.open() as f:
+                next(f, None)  # header
+                for line in f:
+                    s, _it, cum, loss, _gpu = line.strip().split(",")
+                    self.rows.append((int(s), float(loss)))
+                    self.cum_time = float(cum)
+        else:
+            self.csv_path.write_text("step,interval_time_s,cum_time_s,loss,gpu_mem_gb\n")
+
+    def _gpu_gb(self):
+        # peak memory since the last reset, in GB (0 on CPU)
+        if str(self.device).startswith("cuda"):
+            gb = torch.cuda.max_memory_allocated() / 1e9
+            torch.cuda.reset_peak_memory_stats()
+            return gb
+        return 0.0
+
+    def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
+        # train() calls this once per CHECKPOINT_STEPS-sized pass over the prior;
+        # `epoch` is just that pass's 1-based index, so the real x-axis value -
+        # the one that's comparable across configs with different batch sizes -
+        # is the cumulative step count.
+        step = epoch * CHECKPOINT_STEPS
+        self.cum_time += epoch_time
+        gpu = self._gpu_gb()
+        self.peak_gpu_gb = max(self.peak_gpu_gb, gpu)
+        self.rows.append((step, loss))
+        with self.csv_path.open("a") as f:
+            f.write(f"{step},{epoch_time:.3f},{self.cum_time:.3f},{loss:.6f},{gpu:.3f}\n")
+        print(f"step {step:6d} | interval {epoch_time:6.2f}s | cum {self.cum_time:7.1f}s "
+              f"| loss {loss:.4f} | gpu {gpu:.2f}GB", flush=True)
+
+    def close(self):
+        if not self.rows:
+            return
+        steps = [r[0] for r in self.rows]
+        losses = [r[1] for r in self.rows]
+        plt.figure(figsize=(6, 4))
+        plt.plot(steps, losses, marker="o", ms=3)
+        plt.xlabel("training steps")
+        plt.ylabel("mean loss")
+        plt.title(self.out_dir.name)
+        plt.tight_layout()
+        plt.savefig(self.out_dir / "loss_curve.png", dpi=120)
+        plt.close()
+
+
+class FixedValidationCallback(Callback):
+    """Scores the model each checkpoint on ONE shared validation set.
+
+    Every scenario is judged on the same fixed synthetic datasets, so val_loss is
+    directly comparable across runs - unlike training loss, which just reflects
+    whatever difficulty a run ends on. This is the honest training-time signal;
+    TabArena (via eval_tabarena.py) is the independent ground truth.
+    """
+
+    def __init__(self, out_dir, device, num_outputs, n=16, resume=False):
+        self.out_dir = out_dir
+        # the val set can't have more classes than the model can predict
+        self.batches = make_validation_batches(device, n=n, max_classes=num_outputs)
+        self.criterion = nn.CrossEntropyLoss()
+        self.rows = []  # (step, val_loss, val_acc)
+        self.final = None
+        self.csv_path = out_dir / "val.csv"
+        # On resume, keep earlier chunks' rows and append; else start fresh.
+        if resume and self.csv_path.exists():
+            with self.csv_path.open() as f:
+                next(f, None)  # header
+                for line in f:
+                    s, vl, va = line.strip().split(",")
+                    self.rows.append((int(s), float(vl), float(va)))
+                    self.final = (float(vl), float(va))
+        else:
+            self.csv_path.write_text("step,val_loss,val_acc\n")
+
+    @torch.no_grad()
+    def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
+        # train() has already put the model (and schedule-free optimizer) in eval
+        # mode before calling us, so the weights here are the right ones to score.
+        step = epoch * CHECKPOINT_STEPS
+        n_out = model.num_outputs
+        losses, accs = [], []
+        for x, y, split in self.batches:
+            out = model((x, y[:, :split]), train_test_split_index=split).view(-1, n_out)
+            tgt = y[:, split:].reshape(-1).long()
+            losses.append(self.criterion(out, tgt).item())
+            accs.append((out.argmax(-1) == tgt).float().mean().item())
+        vl, va = float(sum(losses) / len(losses)), float(sum(accs) / len(accs))
+        self.rows.append((step, vl, va))
+        self.final = (vl, va)
+        with self.csv_path.open("a") as f:
+            f.write(f"{step},{vl:.6f},{va:.4f}\n")
+        print(f"            | val_loss {vl:.4f} | val_acc {va:.4f}", flush=True)
+
+    def close(self):
+        if not self.rows:
+            return
+        steps = [r[0] for r in self.rows]
+        plt.figure(figsize=(6, 4))
+        plt.plot(steps, [r[1] for r in self.rows], marker="o", ms=3)
+        plt.xlabel("training steps")
+        plt.ylabel("validation loss (shared set)")
+        plt.title(self.out_dir.name)
+        plt.tight_layout()
+        plt.savefig(self.out_dir / "val_loss_curve.png", dpi=120)
+        plt.close()
+
+
+class BandedValidationCallback(Callback):
+    """Like FixedValidationCallback, but scores several named difficulty bands
+    separately instead of one pooled set - so you can see whether a curriculum
+    that's winning "on average" is actually winning on the hard band, or just
+    coasting on the easy one dragging the mean up.
+
+    Opt-in: only attached when a config has a `val_bands:` key (a {name: knobs}
+    mapping - see experiments/configs/pool_curriculum_noise_binary.yaml for an
+    example). Writes its own file (results/<name>/val_bands.csv) rather than
+    touching val.csv, so existing tooling (compare_results.py) that reads val.csv
+    as the flat step,val_loss,val_acc it's always been is unaffected.
+    """
+
+    def __init__(self, out_dir, device, num_outputs, bands, n=32, resume=False):
+        self.out_dir = out_dir
+        self.bands = make_banded_validation_batches(device, bands, max_classes=num_outputs, per_band=n)
+        self.criterion = nn.CrossEntropyLoss()
+        self.rows = []  # (step, band, val_loss, val_acc, val_auc)
+        self.csv_path = out_dir / "val_bands.csv"
+        if resume and self.csv_path.exists():
+            with self.csv_path.open() as f:
+                next(f, None)  # header
+                for line in f:
+                    s, band, vl, va, auc = line.strip().split(",")
+                    self.rows.append((int(s), band, float(vl), float(va),
+                                       None if auc == "" else float(auc)))
+        else:
+            self.csv_path.write_text("step,band,val_loss,val_acc,val_auc\n")
+
+    @torch.no_grad()
+    def on_epoch_end(self, epoch, epoch_time, loss, model, **kwargs):
+        step = epoch * CHECKPOINT_STEPS
+        n_out = model.num_outputs
+        for band_name, batches in self.bands.items():
+            losses, accs, aucs = [], [], []
+            for x, y, split in batches:
+                out = model((x, y[:, :split]), train_test_split_index=split).view(-1, n_out)
+                tgt = y[:, split:].reshape(-1).long()
+                losses.append(self.criterion(out, tgt).item())
+                accs.append((out.argmax(-1) == tgt).float().mean().item())
+                probs = torch.softmax(out, dim=-1).cpu().numpy()
+                tgt_np = tgt.cpu().numpy()
+                classes = set(tgt_np.tolist())
+                if len(classes) == 2:
+                    pos = max(classes)
+                    aucs.append(roc_auc_score(tgt_np == pos, probs[:, pos]))
+                # else: skip AUC for this batch (needs >=2 classes present to be defined)
+            vl = float(sum(losses) / len(losses))
+            va = float(sum(accs) / len(accs))
+            auc = float(sum(aucs) / len(aucs)) if aucs else None
+            self.rows.append((step, band_name, vl, va, auc))
+            with self.csv_path.open("a") as f:
+                f.write(f"{step},{band_name},{vl:.6f},{va:.4f},{'' if auc is None else f'{auc:.4f}'}\n")
+            auc_str = f"{auc:.4f}" if auc is not None else "n/a"
+            print(f"            | val[{band_name}] loss {vl:.4f} | acc {va:.4f} | auc {auc_str}", flush=True)
+
+    def close(self):
+        pass
+
+
+def find_checkpoint(name, base=BASE):
+    """train() saves to "workdir/<name>/" relative to wherever it ran, so check a
+    few likely spots. Returns the path if found, else None."""
+    candidates = [
+        pathlib.Path.cwd() / "workdir" / name / "latest_checkpoint.pth",
+        base / "workdir" / name / "latest_checkpoint.pth",
+    ]
+    return next((p for p in candidates if p.exists()), None)
+
+
+def write_meta(out_dir, name, cfg, total_steps, elapsed, logger, validator, num_outputs):
+    final_loss = logger.rows[-1][1] if logger.rows else None
+    meta = {
+        "name": name,
+        "seed": cfg.get("seed", 42),
+        "device": str(logger.device),
+        "total_steps": total_steps,
+        "elapsed_s": round(elapsed, 1),
+        # compute-resource summary, so we can compare "same compute" fairly
+        "sec_per_step": round(elapsed / total_steps, 4),
+        "steps_per_sec": round(total_steps / elapsed, 2),
+        "peak_gpu_gb": round(logger.peak_gpu_gb, 3),
+        "final_train_loss": round(final_loss, 4) if final_loss is not None else None,
+        # comparable across scenarios (same validation set for everyone)
+        "final_val_loss": round(validator.final[0], 4) if validator.final else None,
+        "final_val_acc": round(validator.final[1], 4) if validator.final else None,
+        "num_outputs": num_outputs,
+    }
+    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+    return meta
+
+
+def load_config(path):
+    with open(path) as f:
+        cfg = yaml.safe_load(f)
+    # YAML keys under `schedule` come in as ints already (0:, 200: ...), good.
+    cfg["schedule"] = {int(k): v for k, v in cfg["schedule"].items()}
+    return cfg
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, help="path to a scenario YAML")
+    parser.add_argument("--seed", type=int, default=None, help="override the config's seed")
+    parser.add_argument("--name", type=str, default=None, help="override the run name (result folder)")
+    parser.add_argument("--steps", type=int, default=None,
+                        help="override the config's total training steps; curriculum thresholds "
+                             "scale so the ramp keeps the same fraction of training (e.g. "
+                             "2000->5000 rescales 700/1400 proportionally)")
+    parser.add_argument("--lr", type=float, default=None,
+                        help="override the config's learning rate (for an lr sweep on our model)")
+    parser.add_argument("--resume", action="store_true",
+                        help="resume from workdir/<name>/latest_checkpoint.pth if it exists "
+                             "(model+optimizer+step), appending to loss.csv/val.csv")
+    parser.add_argument("--stop-after-step", type=int, default=None,
+                        help="train only up to this many steps this run, then exit (for chunking "
+                             "a long run across several short SLURM jobs). Must be a multiple of "
+                             f"the checkpoint granularity ({CHECKPOINT_STEPS}). meta.json is "
+                             "written only once the config's full step target is reached.")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    # let the CLI override seed/name, so a driver can sweep seeds without editing YAML
+    if args.seed is not None:
+        cfg["seed"] = args.seed
+    if args.name is not None:
+        cfg["name"] = args.name
+    if args.lr is not None:
+        cfg["lr"] = args.lr
+    # scaling the total steps also scales the ramp thresholds by the same factor,
+    # so a curriculum designed for 2000 steps ramps over the same *fraction* at 5000
+    if args.steps is not None:
+        scale = args.steps / cfg["steps"]
+        cfg["schedule"] = {round(k * scale): v for k, v in cfg["schedule"].items()}
+        cfg["steps"] = args.steps
+    name = cfg["name"]
+    schedule = cfg["schedule"]
+    total_steps = cfg["steps"]
+    assert total_steps % CHECKPOINT_STEPS == 0, (
+        f"steps ({total_steps}) must be a multiple of the checkpoint granularity "
+        f"({CHECKPOINT_STEPS})"
+    )
+
+    set_randomness_seed(cfg.get("seed", 42))
+    device = get_default_device()
+
+    # The model architecture is fixed for the whole run, so its number of output
+    # classes has to cover the hardest stage we'll ever reach.
+    num_outputs = max(stage.get("max_classes", 2) for stage in schedule.values())
+
+    # Build the prior at the first stage's settings; the scheduler takes over from
+    # there. make_prior gives it a private sampled_hp so internal knobs (noise etc.)
+    # are controllable, and applies the first stage's knobs up front.
+    first = schedule[min(schedule)]
+    external = {k: v for k, v in first.items() if k in ("min_features", "max_features")}
+    internal = {k: v for k, v in first.items() if k not in ("min_features", "max_features", "max_classes")}
+    prior = make_prior(
+        max_features=first["max_features"],
+        max_classes=num_outputs,
+        min_features=external.get("min_features", 2),
+        num_datapoints=cfg.get("num_datapoints", 200),
+        num_steps=CHECKPOINT_STEPS,
+        batch_size=cfg.get("batch_size", 1),
+        device=device,
+        knobs=internal or None,
+    )
+    scheduler = CurriculumScheduler(prior, schedule)
+
+    model = NanoTabPFNModel(
+        num_attention_heads=cfg.get("heads", 6),
+        embedding_size=cfg.get("embedding_size", 192),
+        mlp_hidden_size=cfg.get("hidden_size", 768),
+        num_layers=cfg.get("layers", 6),
+        num_outputs=num_outputs,
+    )
+
+    out_dir = BASE / "results" / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(args.config, out_dir / "config.yaml")
+
+    # --- optional resume, for chunking a long run across short SLURM jobs ---
+    # train() writes workdir/<name>/latest_checkpoint.pth every CHECKPOINT_STEPS
+    # and accepts a ckpt={model, optimizer, epoch} to resume from epoch+1 (that
+    # "epoch" is train()'s own internal pass counter, not a unit we use anywhere
+    # else). We reload it, put the weights into our model, and (crucially)
+    # fast-forward the curriculum's global_step so the difficulty ramp continues
+    # instead of restarting.
+    ckpt = None
+    ckpt_path = BASE / "workdir" / name / "latest_checkpoint.pth"
+    if args.resume and ckpt_path.exists():
+        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model"])
+        scheduler.global_step = ckpt["epoch"] * CHECKPOINT_STEPS
+        # replay the schedule up to here so the prior's knobs match the step we
+        # resume at (step() only fires on stage *changes*, so set it explicitly)
+        scheduler.step(scheduler.global_step)
+        print(f"=== RESUMING '{name}' from step {scheduler.global_step} ===", flush=True)
+
+    # each chunk trains up to --stop-after-step (default = the full target), in
+    # units of CHECKPOINT_STEPS-sized checkpoint intervals - the only unit
+    # train()'s own `epochs=` argument understands
+    target_checkpoints = total_steps // CHECKPOINT_STEPS
+    if args.stop_after_step is not None:
+        assert args.stop_after_step % CHECKPOINT_STEPS == 0, (
+            f"--stop-after-step ({args.stop_after_step}) must be a multiple of "
+            f"the checkpoint granularity ({CHECKPOINT_STEPS})"
+        )
+        this_run_checkpoints = args.stop_after_step // CHECKPOINT_STEPS
+    else:
+        this_run_checkpoints = target_checkpoints
+    resume = ckpt is not None
+
+    print(f"=== training '{name}' | up to step {this_run_checkpoints * CHECKPOINT_STEPS}/{total_steps} "
+          f"| num_outputs={num_outputs} | device={device} ===")
+
+    logger = LossLoggerCallback(out_dir, device, resume=resume)
+    validator = FixedValidationCallback(out_dir, device, num_outputs, resume=resume)
+    callbacks = [logger, validator]
+    # Opt-in: only configs with a `val_bands:` key (a {name: knobs} mapping) get
+    # per-band validation logging, on top of the usual pooled val.csv - see
+    # BandedValidationCallback's docstring. Configs without it are unaffected.
+    if "val_bands" in cfg:
+        callbacks.append(BandedValidationCallback(out_dir, device, num_outputs, cfg["val_bands"], resume=resume))
+    start = time.time()
+    train(
+        model=model,
+        prior=scheduler,
+        criterion=nn.CrossEntropyLoss(),
+        epochs=this_run_checkpoints,
+        lr=cfg.get("lr", 1e-4),
+        device=device,
+        callbacks=callbacks,
+        run_name=name,
+        ckpt=ckpt,
+    )
+    elapsed = time.time() - start
+
+    # If this was an intermediate chunk (didn't reach the full target), stop here:
+    # the checkpoint is saved in workdir for the next chunk, but we don't write the
+    # final checkpoint.pth / meta.json yet.
+    last_step = logger.rows[-1][0] if logger.rows else 0
+    if last_step < total_steps:
+        print(f"=== chunk done at step {last_step}/{total_steps}; "
+              f"resume with --resume to continue ===", flush=True)
+        return
+
+    ckpt_src = find_checkpoint(name)
+    if ckpt_src:
+        shutil.copy(ckpt_src, out_dir / "checkpoint.pth")
+    else:
+        print("warning: could not find the saved checkpoint to copy", flush=True)
+
+    meta = write_meta(out_dir, name, cfg, total_steps, elapsed, logger, validator, num_outputs)
+    print(f"done in {elapsed:.1f}s ({meta['sec_per_step']}s/step) -> {out_dir}")
+
+
+if __name__ == "__main__":
+    main()

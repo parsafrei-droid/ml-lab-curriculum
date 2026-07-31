@@ -1,0 +1,15 @@
+name: paper_binary_hp3_s43
+seed: 43
+steps: 2500
+batch_size: 32
+lr: 0.00018907382322556622
+num_datapoints: 239
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+schedule:
+  0:
+    min_features: 4
+    max_features: 4
+    max_classes: 2

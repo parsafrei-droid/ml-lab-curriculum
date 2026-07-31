@@ -1,171 +1,33 @@
 # Curriculum Pretraining for nanoTabPFN
 
-ML Lab 2026, University of Freiburg — Parsa, Emre, Omid.
+ML Lab 2026, University of Freiburg. Parsa Rasouli, Emre Ozturk, Omid Frei.
+Supervisors: Alexander Pfefferle, Dominika Wozniak.
 
-**Question:** nanoTabPFN is normally trained on synthetic datasets shown in
-random order. If we instead order them **easy → hard** (a curriculum), does it
-train faster or reach a better model for the same compute?
+Does the **order** of the synthetic tables matter when pretraining a tabular foundation
+model? It does, but not because "easy first" is magic. What decides the outcome is the
+regime the curriculum **ends** in.
 
-This repo is the code to answer that. Read this whole file before running — it's
-the roadmap: how the code works, who runs what, and what to produce for the poster.
+**Start here: [`final/`](final/)** contains the figures, the write-up and the code to
+reproduce the main result.
 
----
+- [`final/README.md`](final/README.md) - what we found and how to run it
+- [`final/FINDINGS.md`](final/FINDINGS.md) - the full write-up
+- [`final/COMPUTE.md`](final/COMPUTE.md) - what the project cost
+- [`experiments/`](experiments/) - everything we tried on the way, including what failed
 
-## What we found so far (before any training)
+## Setup
 
-We can measure how "hard" a generated dataset is *without* training, using a
-cheap probe (`curriculum/difficulty.py`: how badly a small kNN learns the task).
-Running the sweep gave two results that shaped the whole plan:
-
-1. **No single knob controls difficulty.** Sweeping `max_features`, `max_classes`,
-   `noise_std`, `num_layers`, `hidden_dim`, `num_causes` one at a time → every
-   line is flat (`experiments/difficulty_sweep.png`). Changing one knob while the
-   prior's ~16 other hyper-parameters keep sampling randomly buries the signal.
-
-2. **The whole regime does.** A "narrow" prior (every knob turned down together)
-   vs the full default prior shows a clear gap — easy ≈ 0.42, hard ≈ 0.55
-   difficulty (`experiments/regime_contrast.png`).
-
-**So our curriculum ramps the entire regime narrow → full, not one knob.** The
-single-knob curricula are kept as ablations we *expect* to be weak — that
-contrast is itself a result for the poster.
-
----
-
-## Parts of the code
-
-```
-curriculum/                     our code (small, on purpose)
-  difficulty.py    difficulty scores: learnability (kNN error) + a geometric one
-  prior.py         make_prior() / sample_dataset() around TabICL's generator
-  scheduler.py     CurriculumScheduler + apply_knobs() — moves the prior easy→hard
-scripts/
-  setup_env.py     one-time: clone upstream repos, patch, install
-  sweep_difficulty.py  which knobs move difficulty (the finding above)
-  visualize_prior.py   easy→hard datasets in 2D (PCA, coloured by class)
-  demo_scheduler.py    proof the scheduler actually changes the prior
-  run.py           TRAIN one scenario from a YAML config
-  eval_tabarena.py EVALUATE a checkpoint on TabArena
-  compare_results.py   gather everyone's results into the poster figures
-  submit_job.sh    SLURM template for the GPU cluster
-experiments/configs/  one YAML per scenario (baseline + 5 curricula)
-results/<name>/       what a run produces (see below)
-```
-
-The curriculum plugs into TFM-Playground's own `train()` loop untouched: the
-scheduler advances itself as the loop pulls batches. The only upstream change is
-a one-line import fix, re-applied automatically by `setup_env.py`.
-
----
-
-## Setup (each machine, once)
+Two upstream repos are expected next to this one, plus a shared virtualenv:
 
 ```bash
-git clone <this-repo-url> ml-lab-curriculum
-cd ml-lab-curriculum
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-python scripts/setup_env.py        # clones TFM-Playground + tabicl, patches, installs
-python scripts/demo_scheduler.py   # quick check it all works
+git clone <TFM-Playground> TFM-Playground
+git clone <tabicl> tabicl
+python -m venv .venv && source .venv/bin/activate
+pip install -e TFM-Playground -e tabicl
 ```
 
----
-
-## The workflow
+Then:
 
 ```bash
-# 1) EXPLORE (cheap, no training) — how we picked the difficulty definition
-python scripts/sweep_difficulty.py      # -> experiments/difficulty_sweep.png + regime_contrast.png
-python scripts/visualize_prior.py       # -> experiments/prior_visualization.png
-
-# 2) TRAIN your scenario  (GPU!) — writes results/<name>/
-python scripts/run.py --config experiments/configs/curriculum_combined.yaml
-#   on the cluster instead:  sbatch scripts/submit_job.sh curriculum_combined
-
-# 3) EVALUATE your checkpoint on TabArena — writes results/<name>/tabarena_scores.json
-python scripts/eval_tabarena.py --checkpoint results/curriculum_combined/checkpoint.pth --tasks tabarena
-
-# 4) COMPARE (one person, after everyone commits their results/)
-python scripts/compare_results.py       # -> experiments/comparison_*.png + summary.csv
+cd final/code && bash run.sh
 ```
-
-### Running everything
-
-`scripts/run_all_cluster.sh` runs **all 8 scenarios × 3 seeds** (train + TabArena
-eval) in one GPU job — that's the whole experiment. The scenarios:
-
-| scenario | what it ramps | tests |
-|---|---|---|
-| `baseline` | nothing (full regime throughout) | control |
-| `curriculum_combined` | whole regime, easy→hard | primary hypothesis |
-| `curriculum_reverse` | whole regime, hard→easy | does order matter (sanity) |
-| `curriculum_features` | features only | compute knob (✅ saves compute) |
-| `curriculum_rows` | dataset size only | biggest compute knob (O(rows²)) |
-| `curriculum_noise` | noise only | non-compute knob (❌, control) |
-| `curriculum_classes` | class count only | non-compute knob (❌, control) |
-| `curriculum_combined_slow` | whole regime, gentler ramp | ramp-speed |
-
-The headline is **compute efficiency**: `features`/`rows` shrink the data early so
-the same steps cost less; `noise`/`classes` don't. `compare_results.py` produces
-`comparison_efficiency.png` (ROC-AUC vs wall-clock) on top of the val-loss and
-ROC-AUC figures. Commit each `results/<name>_s<seed>/` folder (checkpoints are
-git-ignored — only the small `loss.csv`, `val.csv`, `meta.json`,
-`tabarena_scores.json`, `*.png`, `config.yaml` go in).
-
----
-
-## What a run produces (`results/<name>/`)
-
-| file | what |
-|---|---|
-| `checkpoint.pth` | trained model (git-ignored, stays local — 44 MB) |
-| `loss.csv` | per epoch training loss (NOT comparable across scenarios — see below) |
-| `val.csv` | per epoch **val_loss, val_acc on a shared fixed set** — the comparable metric |
-| `loss_curve.png` / `val_loss_curve.png` | those curves, plotted |
-| `meta.json` | seed, total_steps, **elapsed_s, sec_per_step, peak_gpu_gb, final_val_loss, final_val_acc** |
-| `tabarena_scores.json` | per-dataset + mean ROC-AUC on TabArena |
-| `config.yaml` | the exact config used |
-
-`meta.json` carries the **compute-resource** numbers so we can compare "same
-compute" fairly, not just final accuracy — that's the actual research question.
-
-### Comparability: use val_loss, not train_loss
-
-**Do not compare `loss.csv` (training loss) across scenarios.** Each scenario
-ends on different-difficulty data, so a run that finishes on easy data has a low
-final train loss *for free* — it hasn't learned more, it's just being tested on
-easier batches. Every scenario is instead scored each epoch on **one shared,
-fixed validation set** (`val.csv`), which is identical for all runs. Compare
-**`val_loss` / `val_acc`** (comparable) and **TabArena ROC-AUC** (ground truth).
-
-> All results pushed before this were train-loss only — **please rerun your
-> scenarios** so they log `val.csv`, and run `baseline` (it was missed the first
-> time; without the control we can't conclude anything).
-
----
-
-## Poster deliverables (what comes out of `compare_results.py`)
-
-- `experiments/comparison_loss.png` — all scenarios' loss curves on one axis
-- `experiments/comparison_tabarena.png` — mean TabArena ROC-AUC per scenario
-- `experiments/comparison_summary.csv` — the table: steps, time, sec/step, peak
-  GPU, final loss, ROC-AUC per scenario
-
-Plus the "why" figures already generated: `difficulty_sweep.png`,
-`regime_contrast.png`, `prior_visualization.png`.
-
-The story the poster tells: *(1) how we defined difficulty and why single knobs
-don't work, (2) baseline vs curriculum_combined on loss + TabArena, (3) does
-order matter (reverse), (4) do single-knob curricula help (ablations).*
-
----
-
-## Notes
-
-- Configs are set to **2000 steps** (20 epochs × 100) for a first comparison.
-  For the final runs bump `epochs` (e.g. 50 → 5000 steps). Thresholds in the
-  schedule are absolute global steps — scale them if you change the totals.
-- Laptops (CPU) are fine for the explore step and smoke tests; do the real
-  training on GPU. On CPU a hard step is ~2–3 s and big datasets can crash.
-- `noise_std` etc. are *ranges* the prior samples from — the scheduler sets the
-  top of the range (low = easy, high = hard). See `curriculum/scheduler.py`.

@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_reverse_e50_s44",
+  "seed": 44,
+  "device": "cuda",
+  "total_steps": 5000,
+  "elapsed_s": 201.9,
+  "sec_per_step": 0.0404,
+  "steps_per_sec": 24.77,
+  "peak_gpu_gb": 1.959,
+  "final_train_loss": 0.4649,
+  "final_val_loss": 1.3842,
+  "final_val_acc": 0.5094,
+  "num_outputs": 10
+}

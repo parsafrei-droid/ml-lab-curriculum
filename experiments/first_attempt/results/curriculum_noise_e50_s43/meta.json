@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_noise_e50_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 5000,
+  "elapsed_s": 246.5,
+  "sec_per_step": 0.0493,
+  "steps_per_sec": 20.28,
+  "peak_gpu_gb": 1.973,
+  "final_train_loss": 0.9723,
+  "final_val_loss": 0.5989,
+  "final_val_acc": 0.7143,
+  "num_outputs": 10
+}

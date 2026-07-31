@@ -1,0 +1,14 @@
+{
+  "name": "paper_binary_hp8_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 186.2,
+  "sec_per_step": 0.0745,
+  "steps_per_sec": 13.42,
+  "peak_gpu_gb": 0.568,
+  "final_train_loss": 0.5143,
+  "final_val_loss": 0.4966,
+  "final_val_acc": 0.7528,
+  "num_outputs": 2
+}

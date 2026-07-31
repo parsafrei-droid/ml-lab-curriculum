@@ -1,0 +1,22 @@
+# curriculum_combined with the paper's FULL recipe: their model (3-layer/96/4-head
+# /192) AND their training (lr 3.9e-3, batch 32). Same as baseline_tuned but with
+# the easy->hard curriculum ramp added - so the ONLY difference between the two is
+# the curriculum. This is the clean paper-matched comparison.
+name: curriculum_combined_tuned
+seed: 42
+epochs: 20
+steps: 100
+batch_size: 32
+lr: 0.003892
+num_datapoints: 200
+
+# paper architecture
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+schedule:
+  0:    {min_features: 2, max_features: 4,  max_classes: 2,  noise_std: 0.02, num_layers: 2, hidden_dim: 16,  num_causes: 2}
+  700:  {max_features: 20, max_classes: 5,  noise_std: 0.1,  num_layers: 4, hidden_dim: 64,  num_causes: 6}
+  1400: {max_features: 60, max_classes: 10, noise_std: 0.3,  num_layers: 6, hidden_dim: 128, num_causes: 12}

@@ -1,0 +1,14 @@
+{
+  "name": "paper_binary_hp7_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 290.3,
+  "sec_per_step": 0.1161,
+  "steps_per_sec": 8.61,
+  "peak_gpu_gb": 1.339,
+  "final_train_loss": 0.4653,
+  "final_val_loss": 0.4699,
+  "final_val_acc": 0.7616,
+  "num_outputs": 2
+}

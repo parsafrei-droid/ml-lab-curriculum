@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_rows_e50_s42",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 5000,
+  "elapsed_s": 311.5,
+  "sec_per_step": 0.0623,
+  "steps_per_sec": 16.05,
+  "peak_gpu_gb": 2.115,
+  "final_train_loss": 0.9609,
+  "final_val_loss": 1.1454,
+  "final_val_acc": 0.5516,
+  "num_outputs": 10
+}

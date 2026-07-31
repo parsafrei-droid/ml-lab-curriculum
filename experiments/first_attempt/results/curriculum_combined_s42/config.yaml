@@ -1,0 +1,15 @@
+# PRIMARY HYPOTHESIS - ramp the WHOLE regime narrow -> full (easy -> hard).
+# The sweep showed no single knob controls difficulty, but the full regime does,
+# so this is the curriculum most likely to help. Ends at the baseline regime.
+name: curriculum_combined
+seed: 42
+epochs: 20        # 2000 global steps, ramped at 0 / 700 / 1400
+steps: 100
+batch_size: 1
+lr: 1.0e-4
+num_datapoints: 200
+
+schedule:
+  0:    {min_features: 2, max_features: 4,  max_classes: 2,  noise_std: 0.02, num_layers: 2, hidden_dim: 16,  num_causes: 2}
+  700:  {max_features: 20, max_classes: 5,  noise_std: 0.1,  num_layers: 4, hidden_dim: 64,  num_causes: 6}
+  1400: {max_features: 60, max_classes: 10, noise_std: 0.3,  num_layers: 6, hidden_dim: 128, num_causes: 12}

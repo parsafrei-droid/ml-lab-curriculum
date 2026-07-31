@@ -1,0 +1,22 @@
+name: curriculum_noise_spread_binary
+seed: 42
+steps: 6000        # 6 stages, 1000 steps each, thresholds on 100-step boundaries - last
+                   # stage (5000) needs total steps >= 5000+ to ever fire; 6000 gives it
+                   # a 1000-step hold at the end, matching every other stage's length
+batch_size: 32     # paper_binary.yaml's effective_batch_size
+lr: 0.003892        # paper_binary.yaml's lr
+num_datapoints: 154 # paper_binary.yaml's num_datapoints_max (fixed, not sampled - see paper_binary.yaml's note)
+
+# paper_binary.yaml's architecture
+heads: 4
+embedding_size: 96
+hidden_size: 192   # 96 x mlp_multiple(2)
+layers: 3          # unverified against the paper itself - see paper_binary.yaml's note
+
+schedule:
+  0:    {min_features: 4, max_features: 4, max_classes: 2, num_layers: 2, hidden_dim: 16,  noise_std: 0.001}
+  1000:  {noise_std: 0.3}
+  2000:  {num_layers: 4, hidden_dim: 64,  noise_std: 0.001}
+  3000: {noise_std: 0.3}
+  4000: {num_layers: 6, hidden_dim: 130, noise_std: 0.001}
+  5000: {noise_std: 0.3}

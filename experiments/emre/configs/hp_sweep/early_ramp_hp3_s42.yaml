@@ -1,0 +1,44 @@
+name: early_ramp_hp3_s42
+seed: 42
+steps: 2500
+batch_size: 32
+lr: 0.00018907382322556622
+num_datapoints: 239
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+schedule:
+  0:
+    min_features: 4
+    max_features: 4
+    max_classes: 2
+    num_layers: 2
+    hidden_dim: 16
+    noise_std: 0.001
+  100:
+    noise_std: 0.01
+  200:
+    noise_std: 0.1
+  300:
+    noise_std: 0.3
+  400:
+    num_layers: 4
+    hidden_dim: 64
+    noise_std: 0.001
+  500:
+    noise_std: 0.01
+  600:
+    noise_std: 0.1
+  700:
+    noise_std: 0.3
+  800:
+    num_layers: 6
+    hidden_dim: 130
+    noise_std: 0.001
+  900:
+    noise_std: 0.01
+  1000:
+    noise_std: 0.1
+  1100:
+    noise_std: 0.3

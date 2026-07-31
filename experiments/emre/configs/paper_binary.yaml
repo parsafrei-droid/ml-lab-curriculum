@@ -1,0 +1,51 @@
+# PAPER REFERENCE (BINARY) — nanoTabPFN's actual optimal recipe as published in
+# Table 1 (Appendix A, Hyperparameter Search Space and Optimal Configuration).
+# Unlike paper_small.yaml, this does NOT deviate on max_classes: paper_small
+# deliberately trains a 10-way head (max_classes: 10) so its checkpoint can be
+# scored on our multiclass TabArena eval; that's a documented, intentional
+# choice for a different purpose, but it means paper_small is not actually the
+# paper's model - it's a modified variant of it. This file is the un-modified
+# recipe: max_classes: 2, a genuinely binary head, matching what the paper
+# describes training. Evaluate it with eval_tabarena.py as usual -
+# mean_roc_auc_binary in its output is already the binary-only slice, no
+# separate flag needed.
+#
+# Everything below traces to a specific Table 1 cell except num_layers (model
+# depth) - the search space table has no "number of layers" row at all, so
+# `layers: 3` is carried over from paper_small.yaml/this project's existing
+# understanding of the paper, NOT verified against Table 1 itself. Flagging
+# this rather than asserting it as confirmed.
+#
+# Two Table 1 values this repo's code cannot actually honor yet, independent of
+# what's written in this file:
+#   - weight_decay: paper's optimum is 1.00e-7. TFM-Playground/tfmplayground/
+#     train.py hardcodes weight_decay=0.0 in the optimizer construction and
+#     never reads a config value for it - so there is currently no way to set
+#     this from a YAML at all. Not set below because setting it would silently
+#     do nothing; train.py would need a real change first.
+#   - num_datapoints_max: paper's 154 is the top of a SAMPLED range (their
+#     search space was [50, 300]) - i.e. dataset row-count varies per
+#     synthetic example. curriculum/prior.py's make_prior always narrows this
+#     to (num_datapoints, num_datapoints + 1), effectively a fixed value, not
+#     a sampled range. num_datapoints: 154 below matches the paper's magnitude
+#     but not its variability - make_prior would need a real change to sample
+#     a genuine [min, max] range like the paper's setup does.
+name: paper_binary
+seed: 42
+steps: 2500           # as in the paper
+batch_size: 32        # Table 1: effective_batch_size optimum
+lr: 0.003892           # Table 1: lr optimum
+num_datapoints: 154    # Table 1: num_datapoints_max optimum (fixed, not sampled - see note above)
+
+# Table 1: num_attention_heads / embedding_size / mlp_multiple (hidden_size = embedding_size x mlp_multiple)
+heads: 4
+embedding_size: 96
+hidden_size: 192       # 96 x mlp_multiple(2)
+layers: 3              # NOT in Table 1 - unverified, see note above
+
+# no curriculum — a single fixed stage at the paper's literal optimum.
+# num_features: 4 is a single reported value, not a range, so min=max=4
+# (paper_small.yaml's min_features: 3 was an unexplained approximation).
+# max_classes: 2 - true binary, the actual thing being fixed vs paper_small.
+schedule:
+  0: {min_features: 4, max_features: 4, max_classes: 2}

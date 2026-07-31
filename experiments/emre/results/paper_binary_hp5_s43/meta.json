@@ -1,0 +1,14 @@
+{
+  "name": "paper_binary_hp5_s43",
+  "seed": 43,
+  "device": "cuda",
+  "total_steps": 2500,
+  "elapsed_s": 168.6,
+  "sec_per_step": 0.0675,
+  "steps_per_sec": 14.83,
+  "peak_gpu_gb": 0.33,
+  "final_train_loss": 0.5334,
+  "final_val_loss": 0.469,
+  "final_val_acc": 0.7727,
+  "num_outputs": 2
+}

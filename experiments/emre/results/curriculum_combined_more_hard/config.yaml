@@ -1,0 +1,42 @@
+# curriculum_combined_tuned, but with the pacing curriculum-learning
+# literature actually points to for a DIFFICULTY curriculum: a short ramp,
+# then most of training at the target/full regime - "more" time at hard,
+# "less" time at easy. The mirror image of curriculum_combined_tabicllike's
+# pacing (88%/8%/4%), which borrowed a proportion shaped for a compute/
+# context-length curriculum, not a difficulty one.
+#
+# References this pacing is modeled on (see conversation - not verified
+# against the papers directly, just the general shape they report):
+#   - competence-based curricula for NMT (Platanios et al., NAACL 2019) ramp
+#     competence with a sqrt(t) schedule - fast early, full competence well
+#     before training ends.
+#   - BERT progressive stacking (Gong et al., 2019) and GPT-style sequence-
+#     length warmup: the ramp is a small slice of total steps, target
+#     regime for the rest.
+#   - "When Do Curricula Work?" (Wu et al., ICLR 2021): curricula with an
+#     overlong easy phase tend to underperform - the benefit is believed to
+#     come from early-training dynamics, which saturates quickly.
+#
+# Same 2500-step budget as curriculum_combined_tabicllike (and paper_small)
+# and the same knob endpoints as curriculum_combined_tuned, just paced
+# differently, so all three are comparable pacing-shape variants:
+#   0:   easy    (0%-12.5%)
+#   313: medium  (12.5%-25%)
+#   625: full    (25%-100%, 1875 of 2500 steps)
+name: curriculum_combined_more_hard
+seed: 42
+steps: 2500       # total training steps - matches curriculum_combined_tabicllike
+batch_size: 32
+lr: 0.003892
+num_datapoints: 200
+
+# paper architecture (same as curriculum_combined_tuned / baseline_tuned)
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+schedule:
+  0:   {min_features: 2, max_features: 4,  max_classes: 2,  noise_std: 0.02, num_layers: 2, hidden_dim: 16}
+  300: {max_features: 20, max_classes: 5,  noise_std: 0.1,  num_layers: 4, hidden_dim: 64}
+  600: {max_features: 60, max_classes: 10, noise_std: 0.3,  num_layers: 6, hidden_dim: 128}

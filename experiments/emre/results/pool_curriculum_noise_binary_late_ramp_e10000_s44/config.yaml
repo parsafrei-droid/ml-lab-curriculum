@@ -1,0 +1,19 @@
+# Pool-mode version of curriculum_noise_layers_binary.yaml ("late ramp").
+# Trains by walking pools/binary_late_ramp.pt in ascending regime order
+# (easy -> hard). Paired with pool_baseline_shuffle_binary_late_ramp.yaml:
+# same pool file, same hyperparameters, order: shuffle instead of curriculum.
+name: pool_curriculum_noise_binary_late_ramp
+seed: 42
+steps: 10000
+batch_size: 32
+lr: 0.003892
+num_datapoints: 154
+max_classes: 2
+
+heads: 4
+embedding_size: 96
+hidden_size: 192
+layers: 3
+
+pool: pools/binary_late_ramp.pt
+order: curriculum

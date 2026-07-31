@@ -1,0 +1,14 @@
+{
+  "name": "paper_binary_e10000",
+  "seed": 42,
+  "device": "cuda",
+  "total_steps": 10000,
+  "elapsed_s": 4100.2,
+  "sec_per_step": 0.41,
+  "steps_per_sec": 2.44,
+  "peak_gpu_gb": 0.924,
+  "final_train_loss": 0.4649,
+  "final_val_loss": 0.4592,
+  "final_val_acc": 0.7699,
+  "num_outputs": 2
+}

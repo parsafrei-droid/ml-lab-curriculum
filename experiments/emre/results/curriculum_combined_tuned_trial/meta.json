@@ -1,0 +1,14 @@
+{
+  "name": "curriculum_combined_tuned_trial",
+  "seed": 42,
+  "device": "cpu",
+  "total_steps": 2500,
+  "elapsed_s": 6188.1,
+  "sec_per_step": 2.4752,
+  "steps_per_sec": 0.4,
+  "peak_gpu_gb": 0.0,
+  "final_train_loss": 0.9552,
+  "final_val_loss": 0.9983,
+  "final_val_acc": 0.5423,
+  "num_outputs": 10
+}
