@@ -17,3 +17,11 @@ faster".
 
 Note: the dump numbers in the sketch (200k / 500 datapoints) were placeholders; the figure uses
 our actual pool (80k datasets, 2-60 features, 200 datapoints).
+
+## The noise-curriculum plot
+
+`noise_schedule.png` — Emre's noise ramp (the early-ramp panel), redrawn in the same layout.
+The baseline trains at full noise (noise_std 0.3) from step 0; the curriculum climbs to it,
+stepping 0.001 -> 0.01 -> 0.1 -> 0.3 inside each num_layers block and holding at the ceiling for
+the last ~56% of the run. On binary TabArena (10k steps, 3 seeds) this beat the exact paper
+baseline by +0.008 AUC at ~29% less training time.
