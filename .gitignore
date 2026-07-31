@@ -43,3 +43,6 @@ uv.lock
 
 # Third Wave: upstream speedrun repo is cloned locally (12GB dump in its workdir/)
 experiments/third_wave/modded-nanotabpfn/
+
+# Robustness test dumps are large and rebuildable
+experiments/robustness/pools/

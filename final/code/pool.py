@@ -60,14 +60,22 @@ AXIS_DEFAULTS = {
 }
 
 
-# Two difficulty axes. More features is harder. Fewer in-context examples is harder,
-# so we negate the split index to keep "bigger number = harder" on both.
+# The difficulty axes. More features is harder, more noise is harder, and fewer in-context
+# examples is harder, so we negate the split index to keep "bigger number = harder" on all
+# of them. Noise is only there if the pool was built with it.
 def axis_values(items, axis):
     if axis == "features":
         return [it["n_features"] for it in items]
     if axis == "context":
         return [-it["split"] for it in items]
+    if axis == "noise":
+        return [it["noise"] for it in items]
     raise ValueError(f"unknown axis {axis!r}")
+
+
+def available_axes(items):
+    return [a for a in ("features", "context", "noise") if a == "context" or a in items[0]
+            or (a == "features" and "n_features" in items[0])]
 
 
 def normalised(values):
@@ -93,7 +101,7 @@ def ordering_profile(items, order):
 
     position = list(range(len(order)))
     profile = {}
-    for axis in ("features", "context"):
+    for axis in available_axes(items):
         values = axis_values(items, axis)
         profile[axis] = round(float(spearmanr(position, [values[i] for i in order]).statistic), 3)
     return profile
