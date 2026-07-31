@@ -25,3 +25,12 @@ The baseline trains at full noise (noise_std 0.3) from step 0; the curriculum cl
 stepping 0.001 -> 0.01 -> 0.1 -> 0.3 inside each num_layers block and holding at the ceiling for
 the last ~56% of the run. On binary TabArena (10k steps, 3 seeds) this beat the exact paper
 baseline by +0.008 AUC at ~29% less training time.
+
+## The learning-rate panel
+
+`lr_curve.png` — the bottom-right panel of Emre's 10-config lr sweep, redrawn in the same layout.
+It is hp5, lr=0.003924, the sampled rate closest to the paper's optimum (0.003892). At a well-tuned
+lr the curriculum reaches ~0.97 AUC by step 200 and holds, while the baseline is erratic early and
+only catches up near the end; both finish ~0.99 (final delta +0.003). So at this lr the curriculum
+buys faster, steadier convergence, not a higher ceiling — the large AUC rescues happen at badly-tuned
+low learning rates instead. Bands are the seed min-max over 3 seeds.
