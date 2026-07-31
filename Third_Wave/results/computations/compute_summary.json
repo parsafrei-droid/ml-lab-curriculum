@@ -1,0 +1,270 @@
+{
+  "n_slurm_jobs": 299,
+  "slurm_seconds": 175355,
+  "n_kaggle_runs": 6,
+  "kaggle_seconds": 28645.079999999998,
+  "total_seconds": 204000.08,
+  "queue_seconds": 967442.0,
+  "n_with_queue": 244,
+  "by_gpu": {
+    "NVIDIA H100 94GB": {
+      "n": 230,
+      "sec": 153440.0,
+      "queue": 964548.0,
+      "cluster": "BwUniCluster 3.0 (uc3)"
+    },
+    "NVIDIA A100 80GB": {
+      "n": 65,
+      "sec": 21867.0,
+      "queue": 2851.0,
+      "cluster": "BwUniCluster 2.0 (uc2)"
+    },
+    "CPU only": {
+      "n": 1,
+      "sec": 0.0,
+      "queue": 0.0,
+      "cluster": "BwUniCluster 2.0 (uc2)"
+    },
+    "AMD MI300": {
+      "n": 3,
+      "sec": 48.0,
+      "queue": 43.0,
+      "cluster": "BwUniCluster 3.0 (uc3)"
+    },
+    "NVIDIA Tesla T4 (Kaggle)": {
+      "n": 6,
+      "sec": 28645.079999999998,
+      "queue": 0.0,
+      "cluster": "Kaggle notebooks"
+    }
+  },
+  "by_partition": {
+    "gpu_h100": {
+      "n": 52,
+      "sec": 62022.0,
+      "queue": 801527.0,
+      "nq": 28
+    },
+    "gpu_a100_short": {
+      "n": 45,
+      "sec": 17244.0,
+      "queue": 774.0,
+      "nq": 45
+    },
+    "dev_gpu_h100": {
+      "n": 36,
+      "sec": 16171.0,
+      "queue": 17096.0,
+      "nq": 29
+    },
+    "gpu_h100_short": {
+      "n": 139,
+      "sec": 75247.0,
+      "queue": 145925.0,
+      "nq": 125
+    },
+    "cpu": {
+      "n": 1,
+      "sec": 0.0,
+      "queue": 0.0,
+      "nq": 0
+    },
+    "gpu_h100_il": {
+      "n": 3,
+      "sec": 0.0,
+      "queue": 0.0,
+      "nq": 0
+    },
+    "gpu_a100_il": {
+      "n": 4,
+      "sec": 0.0,
+      "queue": 0.0,
+      "nq": 0
+    },
+    "gpu_mi300": {
+      "n": 3,
+      "sec": 48.0,
+      "queue": 43.0,
+      "nq": 2
+    },
+    "dev_gpu_a100_il": {
+      "n": 16,
+      "sec": 4623.0,
+      "queue": 2077.0,
+      "nq": 15
+    }
+  },
+  "by_wave": {
+    "0. Setup & GPU probes": {
+      "n": 5,
+      "sec": 350.0,
+      "queue": 98.0,
+      "gpus": [
+        "NVIDIA A100 80GB",
+        "NVIDIA H100 94GB"
+      ],
+      "d0": "2026-06-25",
+      "d1": "2026-06-27"
+    },
+    "1. First Wave (TabICL / TFM-Playground)": {
+      "n": 170,
+      "sec": 116588.0,
+      "queue": 149753.0,
+      "gpus": [
+        "NVIDIA A100 80GB",
+        "NVIDIA H100 94GB"
+      ],
+      "d0": "2026-07-01",
+      "d1": "2026-07-06"
+    },
+    "2. Second Wave (nanoTabPFN feature curriculum)": {
+      "n": 109,
+      "sec": 53794.0,
+      "queue": 815514.0,
+      "gpus": [
+        "AMD MI300",
+        "CPU only",
+        "NVIDIA A100 80GB",
+        "NVIDIA H100 94GB"
+      ],
+      "d0": "2026-07-18",
+      "d1": "2026-07-28"
+    },
+    "3. Third Wave (modded-nanoTabPFN 2x2)": {
+      "n": 15,
+      "sec": 4623.0,
+      "queue": 2077.0,
+      "gpus": [
+        "NVIDIA A100 80GB"
+      ],
+      "d0": "2026-07-30",
+      "d1": "2026-07-30"
+    }
+  },
+  "by_state": {
+    "CANCELLED": {
+      "n": 61,
+      "sec": 3671.0
+    },
+    "COMPLETED": {
+      "n": 222,
+      "sec": 158789.0
+    },
+    "FAILED": {
+      "n": 9,
+      "sec": 538.0
+    },
+    "TIMEOUT": {
+      "n": 7,
+      "sec": 12357.0
+    }
+  },
+  "worst_queue": [
+    {
+      "jobid": "6065894",
+      "name": "otf_cur_s2",
+      "part": "gpu_h100",
+      "queue_h": 77.06722222222223,
+      "run_h": 0.7166666666666667
+    },
+    {
+      "jobid": "6065892",
+      "name": "otf_cur_s42",
+      "part": "gpu_h100",
+      "queue_h": 68.74833333333333,
+      "run_h": 0.7769444444444444
+    },
+    {
+      "jobid": "6065893",
+      "name": "otf_cur_s1",
+      "part": "gpu_h100",
+      "queue_h": 68.74833333333333,
+      "run_h": 0.7669444444444444
+    },
+    {
+      "jobid": "5895818",
+      "name": "e_baseline_default_prior_e50_s42",
+      "part": "gpu_h100_short",
+      "queue_h": 1.7133333333333334,
+      "run_h": 0.0077777777777777776
+    },
+    {
+      "jobid": "5895817",
+      "name": "c_baseline_default_prior_e50_s42",
+      "part": "gpu_h100_short",
+      "queue_h": 1.6458333333333333,
+      "run_h": 0.06027777777777778
+    },
+    {
+      "jobid": "5782930",
+      "name": "e_baseline_tuned_e50_s42",
+      "part": "gpu_h100_short",
+      "queue_h": 1.4225,
+      "run_h": 0.013333333333333334
+    },
+    {
+      "jobid": "5782929",
+      "name": "c_baseline_tuned_e50_s42",
+      "part": "gpu_h100_short",
+      "queue_h": 1.3391666666666666,
+      "run_h": 0.06722222222222222
+    },
+    {
+      "jobid": "5895816",
+      "name": "c_baseline_default_prior_e50_s42",
+      "part": "gpu_h100_short",
+      "queue_h": 1.2930555555555556,
+      "run_h": 0.3452777777777778
+    },
+    {
+      "jobid": "5702398",
+      "name": "tabarena_spl_s0",
+      "part": "gpu_h100",
+      "queue_h": 1.2466666666666666,
+      "run_h": 0.5311111111111111
+    },
+    {
+      "jobid": "5702399",
+      "name": "tabarena_spl_s1",
+      "part": "gpu_h100",
+      "queue_h": 1.2466666666666666,
+      "run_h": 0.5466666666666666
+    }
+  ],
+  "kaggle_runs": [
+    {
+      "run": "onthefly_baseline_full_s1",
+      "steps": 2500,
+      "elapsed": 5270.74
+    },
+    {
+      "run": "onthefly_baseline_full_s2",
+      "steps": 2500,
+      "elapsed": 5389.16
+    },
+    {
+      "run": "onthefly_baseline_full_s42",
+      "steps": 2500,
+      "elapsed": 5022.29
+    },
+    {
+      "run": "onthefly_curriculum_features_s1",
+      "steps": 2500,
+      "elapsed": 4230.96
+    },
+    {
+      "run": "onthefly_curriculum_features_s2",
+      "steps": 2500,
+      "elapsed": 4023.72
+    },
+    {
+      "run": "onthefly_curriculum_features_s42",
+      "steps": 2500,
+      "elapsed": 4708.21
+    }
+  ],
+  "first_job": "2026-06-25",
+  "last_job": "2026-07-30",
+  "active_days": 17,
+  "span_days": 36
+}
