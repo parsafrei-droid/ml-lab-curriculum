@@ -13,21 +13,23 @@ For the DLL26 UFR template (A0, PDF, 300 DPI). Plain B2 English. Fill the parts 
 
 **Supervisors:** Alexander Pfefferle, Dominika Matus
 
-**Github:** [repo link]
+**Github:** [\[repo link\]](https://github.com/parsafrei-droid/ml-lab-curriculum/tree/second-wave)
 
 ---
 
 ## Introduction
 
-nanoTabPFN is a small tabular foundation model. It is pretrained once on many synthetic
-tables. After that, to solve a new dataset, we give it the labeled training rows and the
-unlabeled test rows together, and it predicts in a single forward pass. There are no
-gradient steps on the user's data. The labeled rows in the input are called in-context
-examples.
+TabPFN [1] is a tabular foundation model, which performs in context learning [2] to learn from billions of synthetic tables. For a single forward pass prediction, 
+it is given the labeled training rows and
+the unlabeled test rows together.
 
-Curriculum learning says a model can learn better if it sees easy examples before hard ones.
-In this project we ask one simple question: during pretraining, does the order of the
-synthetic tables matter, and if it does, why?
+nanoTabPFN [3], used in this project, is a small, simpler version of 
+TabPFN, built for educational purposes. 
+
+Curriculum learning is based on the idea that AI models can benefit from a training strategy inspired by human learning, where models first learn from easier examples before progressing to more difficult ones. While curriculum learning has been explored in large language model (LLM) research [4], this work is the first to investigate its effects on tabular foundation model pretraining.
+
+In this project we examine the question: during pretraining, does the order of the
+synthetic tables matter, and if it does, how?
 
 ---
 
@@ -114,9 +116,12 @@ restricted to the same 10, so every row is the same datasets.
 
 - [1] Hollmann et al. TabPFN: A Transformer That Solves Small Tabular Classification Problems
   in a Second. ICLR 2023.
-- [2] Pfefferle et al. nanoTabPFN. [add exact cite]
-- [3] TabArena: a living benchmark for tabular machine learning. [add exact cite]
-- [4] modded-nanoTabPFN. github.com/borawhocodess/modded-nanotabpfn
+- [2] Brown et al. Language Models are Few-Shot Learners. 2020.
+- [3] Pfefferle et al. nanoTabPFN. [add exact cite]
+- [4] Zhang et al. Beyond Random Sampling: Efficient Language Model Pretraining via
+Curriculum Learning. 2026.
+- [5] TabArena: a living benchmark for tabular machine learning. [add exact cite]
+- [6] modded-nanoTabPFN. github.com/borawhocodess/modded-nanotabpfn
 
 ---
 
