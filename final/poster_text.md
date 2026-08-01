@@ -9,9 +9,9 @@ For the DLL26 UFR template (A0, PDF, 300 DPI). Plain B2 English. Fill the parts 
 
 **Title:** Curriculum Pretraining for nanoTabPFN: Does the Order of the Synthetic Data Matter?
 
-**Names:** Parsa Rasouli, Emre Ozturk, Omid Frei - University of Freiburg
+**Names:** Parsa Rasouli, Emre Çamlıca, Omid Rasouli - University of Freiburg
 
-**Supervisors:** Alexander Pfefferle, Dominika Wozniak
+**Supervisors:** Alexander Pfefferle, Dominika Matus
 
 **Github:** [repo link]
 
@@ -52,7 +52,8 @@ synthetic tables matter, and if it does, why?
 
 ## Quantitative Results
 
-TabArena ROC-AUC, mean of 3 seeds. The baseline is the same pool in random order.
+TabArena ROC-AUC, mean of 3 seeds. The baseline is the same pool in random order. All 16
+scored tasks: 10 binary and 6 multiclass, one-vs-rest.
 
 | Ordering | Ends training on | ROC-AUC | vs baseline |
 |---|---|---|---|
@@ -65,15 +66,28 @@ TabArena ROC-AUC, mean of 3 seeds. The baseline is the same pool in random order
 Reversing an axis flips the sign of the effect, exactly as we predicted before running:
 features +0.020 becomes -0.029, in-context -0.049 becomes +0.016.
 
+### Binary-only view
+
+Everything at 2,500 steps, scored on the 10 binary tasks alone, against the same baseline: the
+fixed pool in random order. The prior ramp was evaluated on 26 binary tasks; here it is
+restricted to the same 10, so every row is the same datasets.
+
+| Setup | Binary-10 ROC-AUC | vs baseline |
+|---|---|---|
+| In-context, few to many | 0.799 | +0.010 |
+| Features, few to many | 0.799 | +0.010 |
+| Prior ramp: noise + layers, early ramp | 0.796 | +0.007 |
+| Baseline (shuffle) | 0.789 | - |
+| Features, many to few | 0.768 | -0.021 |
+| In-context, many to few | 0.730 | -0.059 |
+
+
 - The ranking is not about easy versus hard. It is about the regime where training ends.
 - Reproduced on an A100: the feature curriculum beats the baseline by +0.030.
-- Ramping the prior's knobs instead: +0.008 to +0.011 over the exact paper baseline, at about
-  29 percent less training time.
 - Compute-bound test: on the speedrun model the curriculum is 1.69 times slower to reach the
   same quality. A saving in FLOPs does not become a saving in wall clock once the model is
   already compute bound.
 - Honest limits: the positive effects are about twice the seed spread, and only 16 of the 51
-  TabArena tasks pass the size filters.
 
 ---
 
@@ -108,5 +122,5 @@ features +0.020 becomes -0.029, in-context -0.049 becomes +0.016.
 
 ## Acknowledgement
 
-We thank our supervisors Alexander Pfefferle and Dominika Wozniak for their guidance during
+We thank our supervisors Alexander Pfefferle and Dominika Matus for their guidance during
 the ML Lab 2026 at the University of Freiburg. Compute was provided by BwUniCluster.
