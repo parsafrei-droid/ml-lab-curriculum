@@ -89,7 +89,10 @@ restricted to the same 10, so every row is the same datasets.
 - Compute-bound test: on the speedrun model the curriculum is 1.69 times slower to reach the
   same quality. A saving in FLOPs does not become a saving in wall clock once the model is
   already compute bound.
-- Honest limits: the positive effects are about twice the seed spread, and only 16 of the 51
+- Statistics: both positive effects win on 3 of 3 seeds and improve 14 of the 16 datasets,
+  Wilcoxon signed-rank p = 0.0017 on the paired per-dataset differences.
+- Honest limits: all runs read one pool, so our seeds vary the model, not the data. Only 16 of
+  the 51 TabArena tasks pass the size filters.
 
 ---
 

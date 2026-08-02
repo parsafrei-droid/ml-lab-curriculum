@@ -93,6 +93,31 @@ Both were confirmed. Reversing an axis flips the sign of the effect:
 
 Same data, same compute, same number of steps. Only the order reversed.
 
+### How solid are the two positive effects?
+
+The comparison is **paired**: for a given seed, the curriculum run and the baseline run share
+the same pool and the same initialisation, so taking the difference first cancels most of the
+seed-to-seed noise. Read that way the effects are tighter than the raw scores suggest
+(`code/stats.py`):
+
+| | features, few to many | in-context, reversed |
+|---|---|---|
+| seeds won | 3/3 | 3/3 |
+| mean delta | +0.0197 | +0.0158 |
+| spread of the delta | 0.0037 | 0.0010 |
+| datasets improved | 14/16 | 14/16 |
+| median per-dataset delta | +0.0160 | +0.0091 |
+| Wilcoxon signed-rank p | 0.0017 | 0.0017 |
+
+So the effect is about 5x the spread of the paired difference, not twice the spread of the
+raw scores, and it holds on 14 of the 16 datasets. The two that do not improve are the same
+pair in both cases (`blood-transfusion-service-center` and `Is-this-a-good-customer`), which
+are the two smallest binary tasks.
+
+What this does **not** cover: all three seeds read the same pool, so this tests whether the
+ordering effect is real *on that pool*, not whether it survives a differently sampled one.
+That is the open test in `experiments/robustness/`.
+
 ## 6. Why: the regime gap
 
 | | pretraining pool | TabArena evaluation |

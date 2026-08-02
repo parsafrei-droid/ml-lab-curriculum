@@ -44,8 +44,11 @@ into a mechanism.
 
 ## What we are not claiming
 
-- The positive effects (+0.020, +0.016) are about twice the between-seed spread. Consistent
-  and directional, but not conclusive. The negative effects are well outside it.
+- The two positive effects hold on 3/3 seeds and 14/16 datasets, with a Wilcoxon signed-rank
+  p of 0.0017 on the paired per-dataset differences (`code/stats.py`). But **all runs read one
+  pool**, so the seeds vary model initialisation and shuffle, not the data. Whether the effect
+  survives a differently sampled pool is untested; that run is specified in
+  [`../experiments/robustness/`](../experiments/robustness/).
 - Only 16 of the 51 TabArena tasks pass the size filters, which is a small evaluation set.
 - One model size, one step budget, one prior. We did not test whether this survives scale.
 - The compute saving is real in FLOPs but does **not** convert to wall-clock on a model that
