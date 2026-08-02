@@ -11,6 +11,18 @@ seeds as `run_tests.sh` — only the scheduler changes.
   and setup clones the two upstream repos.
 * **Persistence: Files only** — lets a killed session resume instead of rebuilding pools.
 
+## Run it detached, not interactively
+
+An interactive session dies when you disconnect, so closing the tab or sleeping the laptop
+kills the run. Put the cells in the notebook, then use **Save Version → Save & Run All
+(Commit)**. That executes the whole notebook on Kaggle's servers with no browser attached;
+you can close everything and collect the result from the *Versions* tab later.
+
+A committed run starts in a **fresh container** and inherits nothing from your interactive
+session, so the clone + setup cell must be in the notebook rather than something you ran by
+hand first. Put one test in one committed notebook and let it build its own pool — that is
+why each session below repeats the setup cell.
+
 ## Cell 1 — clone + setup (~5 min, once per session)
 
 ```python
@@ -66,42 +78,38 @@ Check `ordering_profile` before trusting any score:
 A profile that is not near its expected value means the ordering did not apply and the
 run should be discarded, not reported.
 
-## Time budget — read this before starting
+## Time budget
 
-Pool building dominates, and it is worse than "slow". Measured on a local CPU by timing a
-200-table build and extrapolating: **~235 ms/table, so ~5 h for one 80k pool.** Kaggle's
-4-core CPU is in the same class, possibly slower. Three pools are needed (`main_p1`,
-`main_p2`, `noise`), so pool building alone is **~15 h of CPU**, before any training.
+Measured locally at steady state (1000-table sample, warmup and import cost excluded):
+**77 ms/table, so ~1.7 h per 80k pool.** Kaggle's 4-core CPU is in the same class.
 
 | stage | measured / estimated cost | count |
 | --- | --- | --- |
-| pool build (80k tables, CPU-bound) | **~5 h each** | 3 |
+| pool build (80k tables, CPU-bound) | ~1.7 h each | 3 |
 | training run (2500 steps x 32) | ~15-25 min on P100 | 5 |
 | evaluation (51 OpenML tasks) | ~10-20 min | 5 |
 
-This does **not** fit in one 12 h session, and `--test all` will not finish. It also runs
-into Kaggle's ~30 h/week GPU quota, most of which would be spent with the GPU idle while
-the CPU generates tables.
+Each test fits comfortably in one 12 h session:
 
-**Use one session per stage:**
-
-| session | cells | rough cost |
+| session | command | rough cost |
 | --- | --- | --- |
-| 1 | setup + `pool_seed --arg 1` | ~6 h (5 h pool + 2 runs) |
-| 2 | setup + `pool_seed --arg 2` | ~6 h |
-| 3 | setup + all three `noise` cells | ~6 h (1 shared pool + 3 runs) |
+| A1 | `--test pool_seed --arg 1` | ~2.5 h (1.7 h pool + 2 train/eval) |
+| A2 | `--test pool_seed --arg 2` | ~2.5 h |
+| B | the three `noise` cells | ~3 h (1 shared pool + 3 train/eval) |
 
-The pool build is pure CPU, so build it in a **CPU-only** session (Accelerator: None) and burn
-no GPU quota:
+Total ~8 h. `--test all` would be ~8 h in one go, which fits the 12 h limit, but keep the
+tests in separate committed runs so a failure in one does not cost you the others.
+
+If you want the ~1.7 h build off your GPU quota, run it in a **CPU-only** session first
+(Accelerator: None):
 
 ```python
 !python experiments/robustness/kaggle_run.py --test build_pools --arg 1
-# or, to build all three back to back (long — needs multiple sessions):
-!python experiments/robustness/kaggle_run.py --test build_pools
 ```
 
-Then start a GPU session with persistence on; the runner detects the existing pool and skips
-straight to training.
+Worth doing if quota is tight, but at 1.7 h it is not the emergency the first draft of this
+file claimed. Running build+train together in one GPU session is simpler and costs ~8 h of a
+~30 h/week quota.
 
 Every stage is resumable, so a killed session loses at most the stage in flight: re-run the
 same cell and it skips whatever already finished. Keep **Persistence: Files only** on, or a
