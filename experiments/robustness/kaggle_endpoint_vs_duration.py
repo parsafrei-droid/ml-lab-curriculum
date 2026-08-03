@@ -126,10 +126,28 @@ def log(msg):
     print(f"\n[{hrs():5.2f}h] {msg}", flush=True)
 
 
+def child_env():
+    """tabicl is src-layout, so the repo-root path the tracked scripts insert has no
+    importable package and shadows the editable install. Push the real package roots
+    in via PYTHONPATH so evaluate.py / pool.py work without editing tracked files."""
+    import os
+
+    extra = []
+    for name in ("tabicl", "TFM-Playground"):
+        d = ROOT / name
+        p = d / "src" if (d / "src").is_dir() else d
+        if p.is_dir():
+            extra.append(str(p))
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join(extra + ([existing] if existing else []))
+    return env
+
+
 def sh(cmd, env=None):
     print(f"$ {' '.join(str(c) for c in cmd)}", flush=True)
     t0 = time.time()
-    r = subprocess.run([str(c) for c in cmd], cwd=str(ROOT), env=env)
+    r = subprocess.run([str(c) for c in cmd], cwd=str(ROOT), env=env or child_env())
     if r.returncode != 0:
         raise RuntimeError(f"exit {r.returncode} after {(time.time() - t0) / 60:.1f} min")
     print(f"[ok {(time.time() - t0) / 60:.1f} min]", flush=True)
@@ -249,7 +267,16 @@ def write_runner():
     runner.write_text(
         "import pathlib, runpy, sys\n"
         "BASE = pathlib.Path(__file__).resolve().parent\n"
+        "ROOT = BASE.parent.parent\n"
         "sys.path.insert(0, str(BASE))\n"
+        # train.py inserts ROOT/'tabicl', but tabicl is a src-layout package, so
+        # that entry has no importable package and shadows the editable install.
+        # Put the real package root ahead of it.
+        "for _n in ('tabicl', 'TFM-Playground'):\n"
+        "    _d = ROOT / _n\n"
+        "    _p = _d / 'src' if (_d / 'src').is_dir() else _d\n"
+        "    if _p.is_dir() and str(_p) not in sys.path:\n"
+        "        sys.path.insert(0, str(_p))\n"
         f"{TRAIN_PATCH}\n"
         "sys.argv[0] = str(BASE / 'train.py')\n"
         "runpy.run_path(str(BASE / 'train.py'), run_name='__main__')\n"
