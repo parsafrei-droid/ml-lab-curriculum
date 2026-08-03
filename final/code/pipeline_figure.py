@@ -173,9 +173,11 @@ def panel_train(ax, x):
                                     fc=shade, ec="none"))
         ax.text(cx + 0.45, top - 2.93, band, ha="center", va="center", fontsize=8.8,
                 color="white" if i == 2 else INK)
-    rbox(ax, x + 0.30, top - 3.86, PANEL_W - 0.60, 0.42, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 3.65, "TabArena  ·  ROC-AUC  ·  16 tasks  ·  seeds 42/1/2",
-            ha="center", va="center", fontsize=9.3, color=INK, fontweight="bold")
+    rbox(ax, x + 0.30, top - 4.02, PANEL_W - 0.60, 0.58, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 3.63, "TabArena  ·  ROC-AUC", ha="center", va="center",
+            fontsize=10.5, color=INK, fontweight="bold")
+    ax.text(x + PANEL_W / 2, top - 3.87, "16 tasks  ·  seeds 42/1/2", ha="center",
+            va="center", fontsize=9, color=MUTED)
     ax.text(x + PANEL_W / 2, Y0 + 0.15, "identical for every run", ha="center",
             va="center", fontsize=10, color=PURPLE, style="italic")
 
