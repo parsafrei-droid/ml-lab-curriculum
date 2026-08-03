@@ -29,29 +29,29 @@ def header(ax, x, top, num, title, color):
 def panel_pool(ax, x):
     top = Y0 + PANEL_H
     header(ax, x, top, "1", "Pool generation", BLUE)
-    # prior box
-    rbox(ax, x + 0.30, top - 1.05, PANEL_W - 0.60, 0.52, BLUE)
-    ax.text(x + PANEL_W / 2, top - 0.72, "TabICLv2 prior", ha="center", va="center",
+    # prior box (kept clear of the number badge above it)
+    rbox(ax, x + 0.30, top - 1.14, PANEL_W - 0.60, 0.52, BLUE)
+    ax.text(x + PANEL_W / 2, top - 0.81, "TabICLv2 prior", ha="center", va="center",
             fontsize=12.5, color=INK, fontweight="bold")
-    ax.text(x + PANEL_W / 2, top - 0.94, "unmodified  ·  generation seed 0", ha="center",
+    ax.text(x + PANEL_W / 2, top - 1.03, "unmodified  ·  generation seed 0", ha="center",
             va="center", fontsize=9.5, color=MUTED)
-    ax.add_patch(FancyArrowPatch((x + PANEL_W / 2, top - 1.12), (x + PANEL_W / 2, top - 1.32),
+    ax.add_patch(FancyArrowPatch((x + PANEL_W / 2, top - 1.21), (x + PANEL_W / 2, top - 1.40),
                                  arrowstyle="-|>", mutation_scale=16, color=BLUE, lw=1.6))
     # 80k tables box with a little grid of table icons
-    rbox(ax, x + 0.30, top - 2.62, PANEL_W - 0.60, 1.22, BLUE)
-    ax.text(x + PANEL_W / 2, top - 1.58, "80,000 tables", ha="center", va="center",
+    rbox(ax, x + 0.30, top - 2.70, PANEL_W - 0.60, 1.22, BLUE)
+    ax.text(x + PANEL_W / 2, top - 1.66, "80,000 tables", ha="center", va="center",
             fontsize=12.5, color=INK, fontweight="bold")
-    ax.text(x + PANEL_W / 2, top - 1.80, "drawn once, then frozen", ha="center",
+    ax.text(x + PANEL_W / 2, top - 1.88, "drawn once, then frozen", ha="center",
             va="center", fontsize=9.5, color=MUTED)
     for r in range(2):
         for c in range(7):
-            ax.add_patch(plt.Rectangle((x + 0.55 + c * 0.44, top - 2.20 - r * 0.28),
+            ax.add_patch(plt.Rectangle((x + 0.55 + c * 0.44, top - 2.28 - r * 0.28),
                                        0.32, 0.18, fc="white", ec=BLUE, lw=1.0))
     # property chips in one row
     for i, txt in enumerate(["2-60 features", "200 rows", "up to 10 classes"]):
         cx = x + 0.30 + i * 1.20
-        rbox(ax, cx, top - 3.12, 1.10, 0.34, "#c7d5f0", fc="#f4f7fd", lw=1.0, r=0.05)
-        ax.text(cx + 0.55, top - 2.95, txt, ha="center", va="center", fontsize=8.6, color=INK)
+        rbox(ax, cx, top - 3.20, 1.10, 0.34, "#c7d5f0", fc="#f4f7fd", lw=1.0, r=0.05)
+        ax.text(cx + 0.55, top - 3.03, txt, ha="center", va="center", fontsize=8.6, color=INK)
     ax.text(x + PANEL_W / 2, Y0 + 0.15, "every run reads this same pool", ha="center",
             va="center", fontsize=10, color=BLUE, style="italic")
 
@@ -147,36 +147,36 @@ def panel_ordering(ax, x):
 def panel_train(ax, x):
     top = Y0 + PANEL_H
     header(ax, x, top, "4", "Train & evaluate", PURPLE)
-    # model box with three layer bars
-    rbox(ax, x + 0.30, top - 1.52, PANEL_W - 0.60, 0.96, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 0.74, "nanoTabPFN", ha="center", va="center",
+    # model box with three layer bars (kept clear of the number badge above it)
+    rbox(ax, x + 0.30, top - 1.58, PANEL_W - 0.60, 0.96, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 0.80, "nanoTabPFN", ha="center", va="center",
             fontsize=12, color=INK, fontweight="bold")
     for i in range(3):
-        ax.add_patch(plt.Rectangle((x + 0.75, top - 0.98 - i * 0.13), PANEL_W - 1.50, 0.08,
+        ax.add_patch(plt.Rectangle((x + 0.75, top - 1.04 - i * 0.13), PANEL_W - 1.50, 0.08,
                                    fc="#c9bce4", ec="none"))
-    ax.text(x + PANEL_W / 2, top - 1.44, "published recipe, unchanged", ha="center",
+    ax.text(x + PANEL_W / 2, top - 1.50, "published recipe, unchanged", ha="center",
             va="center", fontsize=8.8, color=MUTED)
-    ax.add_patch(FancyArrowPatch((x + PANEL_W / 2, top - 1.60), (x + PANEL_W / 2, top - 1.78),
+    ax.add_patch(FancyArrowPatch((x + PANEL_W / 2, top - 1.66), (x + PANEL_W / 2, top - 1.84),
                                  arrowstyle="-|>", mutation_scale=14, color=PURPLE, lw=1.5))
-    rbox(ax, x + 0.30, top - 2.28, PANEL_W - 0.60, 0.42, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 2.07, "2,500 steps  ×  32  =  one pass", ha="center",
+    rbox(ax, x + 0.30, top - 2.34, PANEL_W - 0.60, 0.42, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 2.13, "2,500 steps  ×  32  =  one pass", ha="center",
             va="center", fontsize=10.5, color=INK, fontweight="bold")
     # validation box with easy/medium/hard chips
-    rbox(ax, x + 0.30, top - 3.22, PANEL_W - 0.60, 0.80, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 2.60, "validation  ·  96 held-out tables", ha="center",
+    rbox(ax, x + 0.30, top - 3.28, PANEL_W - 0.60, 0.80, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 2.66, "validation  ·  96 held-out tables", ha="center",
             va="center", fontsize=9.5, color=INK)
     for i, (band, shade) in enumerate([("easy", "#ded5f0"), ("medium", "#b9a5dd"),
                                        ("hard", "#6b4fa0")]):
         cx = x + 0.55 + i * 1.05
-        ax.add_patch(FancyBboxPatch((cx, top - 3.08), 0.90, 0.30,
+        ax.add_patch(FancyBboxPatch((cx, top - 3.14), 0.90, 0.30,
                                     boxstyle="round,pad=0.02,rounding_size=0.05",
                                     fc=shade, ec="none"))
-        ax.text(cx + 0.45, top - 2.93, band, ha="center", va="center", fontsize=8.8,
+        ax.text(cx + 0.45, top - 2.99, band, ha="center", va="center", fontsize=8.8,
                 color="white" if i == 2 else INK)
-    rbox(ax, x + 0.30, top - 4.02, PANEL_W - 0.60, 0.58, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 3.63, "TabArena  ·  ROC-AUC", ha="center", va="center",
+    rbox(ax, x + 0.30, top - 4.06, PANEL_W - 0.60, 0.56, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 3.68, "TabArena  ·  ROC-AUC", ha="center", va="center",
             fontsize=10.5, color=INK, fontweight="bold")
-    ax.text(x + PANEL_W / 2, top - 3.87, "16 tasks  ·  seeds 42/1/2", ha="center",
+    ax.text(x + PANEL_W / 2, top - 3.92, "16 tasks  ·  seeds 42/1/2", ha="center",
             va="center", fontsize=9, color=MUTED)
     ax.text(x + PANEL_W / 2, Y0 + 0.15, "identical for every run", ha="center",
             va="center", fontsize=10, color=PURPLE, style="italic")
