@@ -67,8 +67,16 @@ def install():
 def self_check():
     """Import the exact chain train.py and evaluate.py use, in this process, so a
     missing name fails here with a clear message instead of mid-run."""
-    for p in (ROOT / "TFM-Playground", ROOT / "tabicl", ROOT / "final" / "code"):
-        if str(p) not in sys.path:
+    # tabicl is a src-layout package (src/tabicl), TFM-Playground is flat
+    # (tfmplayground/). Pointing at the repo root for a src-layout package puts a
+    # directory with no importable package on sys.path, which then SHADOWS the
+    # working `pip install -e` and makes `import tabicl` fail. Resolve each layout.
+    search = [ROOT / "TFM-Playground", ROOT / "final" / "code"]
+    for name in ("tabicl", "TFM-Playground"):
+        d = ROOT / name
+        search.append(d / "src" if (d / "src").is_dir() else d)
+    for p in search:
+        if p.is_dir() and str(p) not in sys.path:
             sys.path.insert(0, str(p))
     import warnings
     warnings.filterwarnings("ignore")
