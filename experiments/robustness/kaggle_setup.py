@@ -7,10 +7,26 @@ cluster env uses, plus the handful of real deps this pipeline imports.
     TFM-Playground  98e33be
     tabicl          8f665ed
 
-Both pins matter. 98e33be is the commit that fixes the `tabicl.prior.dataset`
-import path, so with this pin no source patch is needed. Leaving these unpinned
-would silently change the prior, and therefore the data, which is the one thing
-these tests must hold fixed.
+Both pins matter: leaving them unpinned would silently change the prior, and
+therefore the data, which is the one thing these tests must hold fixed.
+
+The two pins are NOT compatible out of the box, and a one-line source patch IS
+required. (An earlier version of this docstring claimed 98e33be removed the need
+for it -- that was wrong, and it is why the Kaggle run failed here.) At 98e33be,
+TFM-Playground does:
+
+    from tabicl.prior.dataset import PriorDataset
+
+but tabicl 8f665ed renamed that module to the private `_dataset.py` and re-exports
+the class from the subpackage, so the public path is:
+
+    from tabicl.prior import PriorDataset
+
+`prior/dataset.py` does not exist at 8f665ed. The cluster .venv has this patch
+applied by hand as an uncommitted edit in its TFM-Playground checkout, which is
+why the cluster runs work and a clean clone does not. apply_source_patch() below
+reproduces that edit so Kaggle matches the environment every existing result was
+produced in.
 
 Kaggle notebook, first cell (GPU on, Internet ON):
 
@@ -64,6 +80,37 @@ def clone_deps():
                               capture_output=True, text=True).stdout.strip()
         assert head.startswith(commit[:7]), f"{name} at {head}, expected {commit}"
         print(f"  {name} pinned at {head}", flush=True)
+
+
+"""(path, old, new) edits needed to make the two pinned commits work together.
+Applied after checkout, since checkout resets the tree."""
+SOURCE_PATCHES = [
+    (
+        "TFM-Playground/tfmplayground/external_priors/tabicl.py",
+        "from tabicl.prior.dataset import PriorDataset as TabICLPriorDataset",
+        "from tabicl.prior import PriorDataset as TabICLPriorDataset",
+    ),
+]
+
+
+def apply_source_patch():
+    for rel, old, new in SOURCE_PATCHES:
+        p = ROOT / rel
+        if not p.exists():
+            raise SystemExit(f"expected {rel} after checkout, not found")
+        src = p.read_text()
+        if new in src:
+            print(f"  patch already applied: {rel}", flush=True)
+            continue
+        if old not in src:
+            # Upstream moved: fail loudly rather than train against a prior that
+            # silently differs from the one every existing result used.
+            raise SystemExit(
+                f"cannot patch {rel}: expected line not found.\n"
+                f"  looking for: {old}\n"
+                "Upstream changed; re-check the pins before running.")
+        p.write_text(src.replace(old, new))
+        print(f"  patched {rel}", flush=True)
 
 
 def install():
@@ -123,6 +170,7 @@ def self_check():
 
 if __name__ == "__main__":
     clone_deps()
+    apply_source_patch()  # after checkout, which resets the tree
     install()
     self_check()
     print("\nSETUP OK. Now run:", flush=True)
