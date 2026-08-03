@@ -89,6 +89,7 @@ session. Expect to run the cell 2-3 times. Nothing here is committed or pushed.
 """
 
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -99,10 +100,18 @@ import traceback
 BASE = pathlib.Path(__file__).resolve().parent
 ROOT = BASE.parent.parent
 CODE = ROOT / "final" / "code"
-POOLS = BASE / "pools"
-CONFIGS = BASE / "configs_endpoint"
+
+# Artifacts default to living inside the repo, which is convenient locally but
+# fragile on Kaggle: a re-clone or a session that wipes the working directory
+# destroys the ~1.7 h pool build and every finished checkpoint. Set ARTIFACT_DIR to
+# somewhere outside the clone to make resuming survive that. RESULTS stays where
+# train.py writes it (final/code/results) and is mirrored into OUT.
+_ART = os.environ.get("ARTIFACT_DIR")
+ARTIFACTS = pathlib.Path(_ART).resolve() if _ART else BASE
+POOLS = ARTIFACTS / "pools"
+CONFIGS = ARTIFACTS / "configs_endpoint"
 RESULTS = CODE / "results"
-OUT = BASE / "results_endpoint"
+OUT = ARTIFACTS / "results_endpoint"
 
 POOL = POOLS / "main_p0.pt"
 POOL_SIZE = 80000
@@ -154,6 +163,38 @@ def sh(cmd, env=None):
 
 
 # ------------------------------------------------------------------ setup
+
+def link_results():
+    """train.py hardcodes its output to final/code/results, which lives inside the
+    clone and dies with it. When ARTIFACT_DIR is set, point that path at persistent
+    storage via a symlink so checkpoints survive a re-clone -- without editing the
+    tracked train.py."""
+    if not _ART:
+        return
+    persistent = ARTIFACTS / "code_results"
+    persistent.mkdir(parents=True, exist_ok=True)
+    if RESULTS.is_symlink():
+        if RESULTS.resolve() == persistent.resolve():
+            return
+        RESULTS.unlink()
+    elif RESULTS.exists():
+        # A real directory from a previous non-ARTIFACT_DIR run: migrate, don't lose.
+        for child in RESULTS.iterdir():
+            target = persistent / child.name
+            if not target.exists():
+                shutil.move(str(child), str(target))
+        shutil.rmtree(RESULTS)
+    RESULTS.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        RESULTS.symlink_to(persistent, target_is_directory=True)
+        log(f"results -> {persistent}")
+    except OSError as e:
+        # Windows needs elevation for symlinks; Kaggle (Linux) does not. Fall back to
+        # a real directory so the run still works -- it just won't survive a re-clone.
+        RESULTS.mkdir(parents=True, exist_ok=True)
+        log(f"WARNING: could not link results to {persistent} ({e}); "
+            "results stay inside the repo and will not survive a re-clone.")
+
 
 def setup():
     log("SETUP: pinned deps + install")
@@ -422,6 +463,7 @@ def summarise():
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     setup()
+    link_results()
     build_pool()
     write_order_module()
     runner = write_runner()
