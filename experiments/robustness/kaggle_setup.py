@@ -90,6 +90,35 @@ SOURCE_PATCHES = [
         "from tabicl.prior.dataset import PriorDataset as TabICLPriorDataset",
         "from tabicl.prior import PriorDataset as TabICLPriorDataset",
     ),
+    # external_priors/__init__.py eagerly imports all four prior backends, so
+    # `from tfmplayground.external_priors import TabICLPriorDataLoader` needs ticl
+    # and tabpfn_prior installed -- two git dependencies we never call. This
+    # pipeline only ever builds the TabICL prior (final/code/prior.py). Rather than
+    # install heavy VCS deps (which also declare their own torch) to satisfy an
+    # import we do not use, make the unused backends degrade to a clear error only
+    # if something actually touches them. The TabICL path is untouched, so the
+    # prior -- and therefore the data -- is bit-for-bit what the cluster produced.
+    (
+        "TFM-Playground/tfmplayground/external_priors/__init__.py",
+        "from .tabpfn import TabPFNPriorDataLoader, build_tabpfn_prior\n"
+        "from .ticl import TICLPriorDataLoader, build_ticl_prior",
+        "try:  # optional: requires the tabpfn-v1-prior git dependency\n"
+        "    from .tabpfn import TabPFNPriorDataLoader, build_tabpfn_prior\n"
+        "except ModuleNotFoundError as _e:  # pragma: no cover\n"
+        "    _tabpfn_err = _e\n"
+        "    def _missing_tabpfn(*a, **k):\n"
+        "        raise ModuleNotFoundError(\n"
+        "            'TabPFN prior unavailable: ' + str(_tabpfn_err)) from _tabpfn_err\n"
+        "    TabPFNPriorDataLoader = build_tabpfn_prior = _missing_tabpfn\n"
+        "try:  # optional: requires the ticl git dependency\n"
+        "    from .ticl import TICLPriorDataLoader, build_ticl_prior\n"
+        "except ModuleNotFoundError as _e:  # pragma: no cover\n"
+        "    _ticl_err = _e\n"
+        "    def _missing_ticl(*a, **k):\n"
+        "        raise ModuleNotFoundError(\n"
+        "            'TICL prior unavailable: ' + str(_ticl_err)) from _ticl_err\n"
+        "    TICLPriorDataLoader = build_ticl_prior = _missing_ticl",
+    ),
 ]
 
 
