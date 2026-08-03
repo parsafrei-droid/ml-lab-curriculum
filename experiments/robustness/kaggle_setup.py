@@ -37,6 +37,15 @@ PIN = {
 DEPS = ["schedulefree", "einops", "huggingface-hub", "openml",
         "scikit-learn>=1.5", "scipy", "pyyaml", "pandas", "h5py", "requests"]
 
+# Installed with --no-deps and pinned to what TFM-Playground declares. pfns wants
+# torch>=2.5 plus botorch/gpytorch; resolving those can replace Kaggle's CUDA torch
+# build with a CPU wheel, which would silently cost us the GPU. We need exactly one
+# symbol from it -- pfns.bar_distribution.FullSupportBarDistribution, imported at
+# module level by tfmplayground/interface.py for the REGRESSION head we never use --
+# so its transitive deps are dead weight here. self_check() imports that submodule
+# directly to prove --no-deps left it usable.
+NODEP_DEPS = ["pfns==0.3.0"]
+
 
 def sh(cmd, check=True):
     print(f"$ {cmd}", flush=True)
@@ -59,6 +68,8 @@ def clone_deps():
 
 def install():
     sh(f"{sys.executable} -m pip -q install " + " ".join(f"'{d}'" for d in DEPS))
+    sh(f"{sys.executable} -m pip -q install --no-deps "
+       + " ".join(f"'{d}'" for d in NODEP_DEPS))
     # --no-deps so neither editable install drags torch off Kaggle's CUDA build.
     sh(f"{sys.executable} -m pip -q install --no-deps -e {ROOT / 'tabicl'}")
     sh(f"{sys.executable} -m pip -q install --no-deps -e {ROOT / 'TFM-Playground'}")
@@ -85,11 +96,21 @@ def self_check():
     print("torch", torch.__version__, "| cuda:", torch.cuda.is_available(), flush=True)
     if torch.cuda.is_available():
         print("GPU:", torch.cuda.get_device_name(), flush=True)
+    elif torch.version.cuda is None:
+        # A CPU-only wheel means an install resolved torch and replaced Kaggle's
+        # CUDA build. Training would fall back to CPU and never finish, so stop
+        # here rather than burn a 12 h commit discovering it.
+        raise SystemExit(
+            f"torch {torch.__version__} is a CPU-only build — an install replaced "
+            "Kaggle's CUDA torch. Start a fresh session; do not train on this env.")
     else:
         print("WARNING: no CUDA — Settings > Accelerator > GPU.", flush=True)
 
     import schedulefree  # noqa: F401
     from scipy.stats import spearmanr  # noqa: F401  <- ordering_profile
+    # pfns is installed --no-deps, so confirm the one submodule we actually need
+    # imports without botorch/gpytorch present.
+    from pfns.bar_distribution import FullSupportBarDistribution  # noqa: F401
     from tabicl.prior._prior_config import DEFAULT_SAMPLED_HP  # noqa: F401  <- noise_pool
     from tfmplayground.models.nanotabpfn import NanoTabPFNModel  # noqa: F401
     from tfmplayground.utils import get_default_device, set_randomness_seed  # noqa: F401
