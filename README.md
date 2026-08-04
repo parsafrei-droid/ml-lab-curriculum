@@ -28,11 +28,14 @@ language-model curricula [4]. We asked:
 2. If so, what property of an ordering drives the effect?
 3. Can an ordering, or a cheaper prior, reduce pretraining cost?
 
-**Answers:** (1) yes, up to ±0.05 TabArena ROC-AUC at fixed data and compute; (2)
-retention of the final sustained training phase combined with one-way transfer between
-regimes — *not* "easy first" per se; (3) yes — the same quality arrives 2.3× sooner in
-wall-clock time (4.6× in FLOPs), and a cheaper ramped prior beats the paper recipe while
-training ~25% faster.
+**Answers:** (1) yes, up to ±0.05 TabArena ROC-AUC at fixed data and compute; (2) the
+ascent, not the destination — a controlled test (section 5) shows that deleting the
+ending costs nothing while deleting the climb returns the model to baseline; (3) yes,
+the same quality arrives 2.3× sooner in wall-clock time (4.6× in FLOPs), and a cheaper
+ramped prior beats the paper recipe while training ~25% faster.
+
+On an independently generated pool the ordering effect reproduces at **+0.011**; the
++0.020 in section 4 is the original pool's figure and should not be quoted alone.
 
 ---
 
@@ -43,7 +46,7 @@ experiments/first_attempt/   stage 1: scheduling the prior's own hyperparameters
 experiments/emre/            stage 1 continuation + prior-ramp (noise/capacity) runs + HP sweep
 experiments/second_wave/     stage 2: the fixed-pool ordering experiments (main result)
 experiments/third_wave/      stage 3: efficiency plots + modded-nanoTabPFN 2x2 + compute accounting
-experiments/robustness/      Kaggle fallback runners for the robustness checks
+experiments/robustness/      stage 2b: the path-vs-endpoint runs (runs_endpoint/, runs_path/)
 final/                       poster code + figures (start here to reproduce the headline result)
 ```
 
@@ -117,31 +120,36 @@ Both positive orderings win on 3/3 seeds and improve 14 of 16 tasks (Wilcoxon on
 per-dataset deltas: p = 0.0017 for each; `final/code/stats.py`). By task type, the
 feature curriculum gains 0.010 on binary and 0.035 on multiclass tasks.
 
-### Interpretation (corrected)
+### Interpretation
 
-An earlier write-up claimed "the model specialises to whatever regime the curriculum ends
-in". Band-wise analysis falsifies that in its symmetric form:
+Two framings were tried and discarded before the controlled test in section 5 settled it.
+Both are recorded here so the reasoning is auditable.
 
-- The reversed feature ordering (ends on few-feature tables) is **not** a small-table
-  specialist. It is worse *everywhere*, including the regime it ends on: easy-band
-  validation 0.585 vs 0.597 for the baseline, and −0.008 on the five low-feature
-  benchmark tasks.
-- The ascending curriculum's gain is concentrated on the eleven high-feature tasks
-  (+0.028, vs +0.002 on the low-feature ones).
+**Discarded 1: "the model specialises to whatever regime the curriculum ends in."**
+Falsified by band-wise analysis. The reversed feature ordering (ends on few-feature
+tables) is not a small-table specialist: it is worse *everywhere*, including the regime
+it ends on (easy-band validation 0.585 vs 0.597 for the baseline; −0.008 on the five
+low-feature benchmark tasks).
 
-What the data supports instead:
+**Discarded 2: "what the final sustained phase trains is what is retained."**
+Falsified by the endpoint experiment in section 5. Holding the top of the feature range
+for 1,300 steps captures none of the gain, and deleting the ending altogether costs
+nothing.
 
-1. **One-way transfer + retention.** Competence on wide tables transfers down to narrow
-   ones, not the reverse; and what the *final sustained phase* trains is what is
-   retained. The sawtooth ordering reaches the top of the feature range three times but
-   holds it only ~300 final steps (vs ~700 for the winner) and lands back on the
-   baseline. Descending orderings forget the high end and gain nothing back.
-2. **The in-context effect is a coverage artifact.** The pool never exceeds 180
+**What survives.**
+
+1. **The gain lives in the ascent, not the destination.** See section 5. Every ordering
+   that begins on the smallest tables and works upward scores ~0.801; every ordering
+   that begins on a shuffled mixture and only sorts its tail scores ~0.795, however long
+   it holds the top.
+2. **Transfer is one-way.** Competence on wide tables carries down to narrow ones, not
+   the reverse: the ascending curriculum's gain is concentrated on the eleven
+   high-feature tasks (+0.028, vs +0.002 on the low-feature ones), while the descending
+   ordering loses on both.
+3. **The in-context effect is a coverage artifact.** The pool never exceeds 180
    in-context examples while the benchmark provides 673–4,500, so ending on long
    contexts helps for benchmark-coverage reasons; a wider pool should remove it. Do not
    use this axis as evidence about difficulty ordering.
-3. On the one untainted axis (features), plain easy→hard genuinely wins — via
-   mechanism (1).
 
 ### Efficiency (the headline plot)
 
@@ -158,7 +166,62 @@ changes compute.
 
 ---
 
-## 5. Stage 3 — reshaping the prior during training (ramps)
+## 5. Stage 2b — is it the path or the endpoint? (the controlled test)
+
+The seven orderings of section 4 cannot separate two explanations, because every ordering
+that climbs also ends high. Two experiments break the tie: 35 runs, **5 seeds each**, on
+a rebuilt pool (79,999 tables, one NaN dropped) at identical compute.
+Code: `experiments/robustness/kaggle_endpoint_vs_duration.py` and
+`kaggle_path_vs_endpoint.py`. Data: `experiments/robustness/runs_endpoint/` and
+`runs_path/`.
+
+**Endpoint vs duration (20 runs, 4 arms).** All arms shuffle the first part of training
+and sort only the tail, so they finish at the top of the feature range and hold it for
+300 / 700 / 1300 steps:
+
+| Arm | ROC-AUC | realised feature Spearman |
+|---|---|---|
+| Top held 300 steps | 0.795 ± 0.008 | 0.315 |
+| Top held 700 steps | 0.796 ± 0.006 | 0.625 |
+| Top held 700, pure | 0.796 ± 0.011 | 0.628 |
+| Top held 1300 steps | 0.796 ± 0.007 | 0.888 |
+
+Flat, and all at the shuffled baseline (0.791) rather than the curriculum's 0.811. Even
+the 1300-step arm, whose ordering is 0.888-monotone, captures none of the gain. **Both
+the endpoint and how long it is held are ruled out.**
+
+**Path vs endpoint (15 runs, 3 arms).**
+
+| Arm | ROC-AUC | vs full sort (paired) |
+|---|---|---|
+| Full sort (climb + ending) | 0.802 ± 0.005 | reference |
+| Coarse staircase (4 blocks) | 0.801 ± 0.015 | −0.001 ± 0.011 |
+| Climb, ending removed (last 700 steps shuffled) | 0.801 ± 0.009 | −0.001 ± 0.006 |
+
+Deleting the ending costs nothing; deleting the climb returns to baseline. A coarse
+four-block staircase is as good as a perfect sort, so fine-grained order is not the
+mechanism either.
+
+**A caveat on wording.** "The climb drives the gain" is nearly right but not literal: the
+1300-step arm *does* contain a climb (32 → 59 features over its last 1300 steps) and
+still gains nothing. What separates the two groups is that the winning arms begin at the
+**bottom** of the range (4, 9, 4 mean features at the first checkpoint) and progress
+upward across the whole run, while the losing arms begin on a shuffled mixture (15–27)
+and their ascent covers only the upper half. Read the trajectories in
+`final/figures/path_endpoint.png` before restating this claim.
+
+**Replication and honest effect size.** These runs use an independently generated pool,
+which closes the pool-sample risk: the effect reproduces. But its size is smaller than
+section 4 reports — full sort gives 0.802 at 5 seeds here, and 0.801 on the same three
+seeds section 4 used, against 0.811 there. **Treat +0.011 as the defensible effect size,
+not +0.020.**
+
+Figures: `final/figures/path_vs_endpoint.png` (overlaid trajectories plus a score bar
+chart) and `final/figures/path_endpoint.png` (per-arm trajectory beside per-seed scores).
+
+---
+
+## 6. Stage 3 — reshaping the prior during training (ramps)
 
 Instead of reordering a fixed pool, ramp the generator itself at paper scale (binary
 head, 4 features, evaluated on the 26 binary TabArena tasks that survive the filter):
@@ -193,7 +256,7 @@ curriculum run was slower per epoch. Recorded in `third_wave/results/summary.jso
 
 ---
 
-## 6. Compute
+## 7. Compute
 
 From `third_wave/results/computations/compute_summary.json` (sacct + Kaggle logs):
 
@@ -203,9 +266,13 @@ From `third_wave/results/computations/compute_summary.json` (sacct + Kaggle logs
 - Project total: 56.7 h across 305 runs. Queue time on bwUniCluster totalled ~269 h,
   dominated by three jobs that waited 68–77 h each.
 
+The stage 2b runs (section 5) came later and on Kaggle, so they are **not** in that
+accounting: 35 further runs on T4. The bwUniCluster figure quoted in the poster
+acknowledgement (48.7 h / 299 jobs) is unaffected.
+
 ---
 
-## 7. Reproducing the main result
+## 8. Reproducing the main result
 
 ```bash
 cd experiments/second_wave
@@ -220,9 +287,18 @@ Configs for every other ordering are in `experiments/second_wave/configs/`. The 
 experiments live in `experiments/emre/` (`*_binary_*` configs), evaluated with that
 folder's TabArena scripts.
 
+The stage 2b test runs on Kaggle:
+
+```bash
+python experiments/robustness/kaggle_endpoint_vs_duration.py   # 20 runs, 4 arms x 5 seeds
+python experiments/robustness/kaggle_path_vs_endpoint.py       # 15 runs, 3 arms x 5 seeds
+python final/code/path_vs_endpoint_figure.py                   # overlaid-trajectory figure
+python final/code/path_endpoint_figure.py                      # per-arm trajectory figure
+```
+
 ---
 
-## 8. References
+## 9. References
 
 1. N. Hollmann, S. Müller, K. Eggensperger, F. Hutter. TabPFN: A transformer that solves
    small tabular classification problems in a second. ICLR 2023.
