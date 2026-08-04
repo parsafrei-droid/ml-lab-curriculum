@@ -1,0 +1,21 @@
+{
+  "name": "tail_700_s42",
+  "seed": 42,
+  "source": "pool 79999 order endpoint_tail_700",
+  "order": "endpoint_tail_700",
+  "axes": null,
+  "weights": null,
+  "ordering_profile": {
+    "features": 0.625,
+    "context": 0.002
+  },
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 79999,
+  "elapsed_s": 1785.5,
+  "cum_flops": 274899409804800.0,
+  "peak_gpu_gb": 0.509,
+  "num_outputs": 10
+}

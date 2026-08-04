@@ -1,0 +1,21 @@
+{
+  "name": "tail_300_s2",
+  "seed": 2,
+  "source": "pool 79999 order endpoint_tail_300",
+  "order": "endpoint_tail_300",
+  "axes": null,
+  "weights": null,
+  "ordering_profile": {
+    "features": 0.319,
+    "context": -0.004
+  },
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 79999,
+  "elapsed_s": 1765.4,
+  "cum_flops": 274902419289600.0,
+  "peak_gpu_gb": 0.51,
+  "num_outputs": 10
+}

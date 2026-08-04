@@ -1,0 +1,21 @@
+{
+  "name": "tail_1300_s42",
+  "seed": 42,
+  "source": "pool 79999 order endpoint_tail_1300",
+  "order": "endpoint_tail_1300",
+  "axes": null,
+  "weights": null,
+  "ordering_profile": {
+    "features": 0.888,
+    "context": 0.002
+  },
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 79999,
+  "elapsed_s": 1801.8,
+  "cum_flops": 274902083884800.0,
+  "peak_gpu_gb": 0.51,
+  "num_outputs": 10
+}

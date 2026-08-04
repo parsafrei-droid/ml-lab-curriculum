@@ -1,0 +1,21 @@
+{
+  "name": "tail_700_pure_s3",
+  "seed": 3,
+  "source": "pool 79999 order endpoint_tail_700_pure",
+  "order": "endpoint_tail_700_pure",
+  "axes": null,
+  "weights": null,
+  "ordering_profile": {
+    "features": 0.63,
+    "context": 0.001
+  },
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 79999,
+  "elapsed_s": 1781.4,
+  "cum_flops": 274783310841600.0,
+  "peak_gpu_gb": 0.508,
+  "num_outputs": 10
+}
