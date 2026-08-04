@@ -1,0 +1,21 @@
+{
+  "name": "full_sort_s42",
+  "seed": 42,
+  "source": "pool 79999 order path_full_sort",
+  "order": "path_full_sort",
+  "axes": null,
+  "weights": null,
+  "ordering_profile": {
+    "features": 1.0,
+    "context": 0.003
+  },
+  "device": "cuda",
+  "total_steps": 2500,
+  "grad_accum": 32,
+  "effective_batch": 32,
+  "pool_size": 79999,
+  "elapsed_s": 1738.2,
+  "cum_flops": 274899103430400.0,
+  "peak_gpu_gb": 0.51,
+  "num_outputs": 10
+}

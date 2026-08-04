@@ -1,0 +1,122 @@
+{
+  "checkpoint": "/kaggle/working/repo/final/code/results/tail_300_s42/checkpoint.pth",
+  "mean_roc_auc": 0.784668662294303,
+  "summary": {
+    "all": {
+      "n_datasets": 16,
+      "roc_auc": 0.784668662294303,
+      "log_loss": 0.5403259174391911,
+      "balanced_acc": 0.5346899984343958
+    },
+    "binary": {
+      "n_datasets": 10,
+      "roc_auc": 0.7913143021040162,
+      "log_loss": 0.4267715599600387,
+      "balanced_acc": 0.5891340100611414
+    },
+    "multiclass": {
+      "n_datasets": 6,
+      "roc_auc": 0.773592595944781,
+      "log_loss": 0.7295831799044453,
+      "balanced_acc": 0.4439499790564865
+    }
+  },
+  "per_dataset": {
+    "anneal": {
+      "n_classes": 5,
+      "roc_auc": 0.8051921124976549,
+      "log_loss": 0.6448324128238583,
+      "balanced_acc": 0.2
+    },
+    "blood-transfusion-service-center": {
+      "n_classes": 2,
+      "roc_auc": 0.7264912280701754,
+      "log_loss": 0.4947495071157087,
+      "balanced_acc": 0.5057017543859649
+    },
+    "churn": {
+      "n_classes": 2,
+      "roc_auc": 0.8455240497933175,
+      "log_loss": 0.3541792251763612,
+      "balanced_acc": 0.5
+    },
+    "credit-g": {
+      "n_classes": 2,
+      "roc_auc": 0.7363247863247863,
+      "log_loss": 0.5650282780952284,
+      "balanced_acc": 0.5
+    },
+    "diabetes": {
+      "n_classes": 2,
+      "roc_auc": 0.8205488621151272,
+      "log_loss": 0.504817830739142,
+      "balanced_acc": 0.6962516733601071
+    },
+    "Fitness_Club": {
+      "n_classes": 2,
+      "roc_auc": 0.7874508469449486,
+      "log_loss": 0.5007553253203963,
+      "balanced_acc": 0.6563067150635209
+    },
+    "hazelnut-spread-contaminant-detection": {
+      "n_classes": 2,
+      "roc_auc": 0.8630375000000001,
+      "log_loss": 0.468895754865039,
+      "balanced_acc": 0.78
+    },
+    "Is-this-a-good-customer": {
+      "n_classes": 2,
+      "roc_auc": 0.6911055545633149,
+      "log_loss": 0.34721242403283453,
+      "balanced_acc": 0.5
+    },
+    "Marketing_Campaign": {
+      "n_classes": 2,
+      "roc_auc": 0.8190761516233215,
+      "log_loss": 0.34327786167353125,
+      "balanced_acc": 0.566781404045555
+    },
+    "maternal_health_risk": {
+      "n_classes": 3,
+      "roc_auc": 0.7784980188981466,
+      "log_loss": 0.8549887936062316,
+      "balanced_acc": 0.5659508247743542
+    },
+    "qsar-biodeg": {
+      "n_classes": 2,
+      "roc_auc": 0.8638150539185632,
+      "log_loss": 0.4715000977254596,
+      "balanced_acc": 0.6862985537562665
+    },
+    "seismic-bumps": {
+      "n_classes": 2,
+      "roc_auc": 0.7597689876866078,
+      "log_loss": 0.21729929485668598,
+      "balanced_acc": 0.5
+    },
+    "splice": {
+      "n_classes": 3,
+      "roc_auc": 0.7827860412145154,
+      "log_loss": 0.8397199106292292,
+      "balanced_acc": 0.5814839975845411
+    },
+    "students_dropout_and_academic_success": {
+      "n_classes": 3,
+      "roc_auc": 0.8260386838687478,
+      "log_loss": 0.6997096507923758,
+      "balanced_acc": 0.6123336615732232
+    },
+    "website_phishing": {
+      "n_classes": 3,
+      "roc_auc": 0.8156902691313409,
+      "log_loss": 0.5396656463931219,
+      "balanced_acc": 0.5789313904068002
+    },
+    "MIC": {
+      "n_classes": 8,
+      "roc_auc": 0.6333504500582803,
+      "log_loss": 0.7985826651818545,
+      "balanced_acc": 0.125
+    }
+  }
+}
