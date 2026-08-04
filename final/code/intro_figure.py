@@ -22,36 +22,37 @@ BLUE, ORANGE, PURPLE = "#3b6fd4", "#e8862e", "#6b4fa0"
 GRID = "#c7d5f0"
 GREY = "#b6bcc4"
 
-FIG_W, FIG_H = 13.55, 2.75
-MID = 1.25          # vertical centre line of the flow
-HEAD_Y = 2.52
+FIG_W, FIG_H = 9.50, 1.85
+MID = 0.64          # vertical centre of the flow
+HEAD_Y = 1.62
+DIVIDER_X = 5.52
 
 
-def rbox(ax, x, y, w, h, ec, fc="white", lw=1.4, r=0.07):
-    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=f"round,pad=0.03,rounding_size={r}",
+def rbox(ax, x, y, w, h, ec, fc="white", lw=1.3, r=0.06):
+    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=f"round,pad=0.025,rounding_size={r}",
                                 fc=fc, ec=ec, lw=lw))
 
 
-def arrow(ax, x0, x1, y, color=INK, lw=1.9, scale=18):
+def arrow(ax, x0, x1, y, color=INK, lw=1.7, scale=15):
     ax.add_patch(FancyArrowPatch((x0, y), (x1, y), arrowstyle="-|>",
                                  mutation_scale=scale, color=color, lw=lw))
 
 
 def table_icon(ax, x, y, w, h, color):
     """A little table: outlined body with a filled header strip."""
-    ax.add_patch(plt.Rectangle((x, y), w, h, fc="white", ec=color, lw=1.2))
-    ax.add_patch(plt.Rectangle((x, y + h - 0.09), w, 0.09, fc=color, ec="none"))
+    ax.add_patch(plt.Rectangle((x, y), w, h, fc="white", ec=color, lw=1.0))
+    ax.add_patch(plt.Rectangle((x, y + h - 0.07), w, 0.07, fc=color, ec="none"))
 
 
 def model_block(ax, x, y, w, h, label, sub=None):
     rbox(ax, x, y, w, h, PURPLE)
-    ax.text(x + w / 2, y + h - 0.24, label, ha="center", va="center", fontsize=11,
+    ax.text(x + w / 2, y + h - 0.19, label, ha="center", va="center", fontsize=9.5,
             color=INK, fontweight="bold")
     for i in range(3):
-        ax.add_patch(plt.Rectangle((x + 0.16, y + h - 0.46 - i * 0.13), w - 0.32, 0.08,
+        ax.add_patch(plt.Rectangle((x + 0.13, y + h - 0.36 - i * 0.10), w - 0.26, 0.062,
                                    fc="#c9bce4", ec="none"))
     if sub:
-        ax.text(x + w / 2, y + 0.13, sub, ha="center", va="center", fontsize=8.4,
+        ax.text(x + w / 2, y + 0.11, sub, ha="center", va="center", fontsize=7.4,
                 color=MUTED, style="italic")
 
 
@@ -63,95 +64,93 @@ def build(out_path):
     ax.axis("off")
 
     # ---------------- left: pretraining ----------------
-    ax.text(0.30, HEAD_Y, "Pretraining  ·  once  ·  carries almost all the compute",
-            ha="left", va="center", fontsize=11.5, color=BLUE, fontweight="bold")
+    ax.text(0.30, HEAD_Y, "Pretraining  ·  once  ·  almost all the compute",
+            ha="left", va="center", fontsize=9.8, color=BLUE, fontweight="bold")
 
-    rbox(ax, 0.35, MID - 0.40, 1.30, 0.80, BLUE, fc="#f4f7fd")
-    ax.text(1.00, MID + 0.22, "hand-designed", ha="center", va="center", fontsize=8.6,
+    rbox(ax, 0.32, MID - 0.36, 1.02, 0.72, BLUE, fc="#f4f7fd")
+    ax.text(0.83, MID + 0.19, "hand-designed", ha="center", va="center", fontsize=7.4,
             color=MUTED)
-    ax.text(1.00, MID, "prior", ha="center", va="center", fontsize=12, color=INK,
+    ax.text(0.83, MID - 0.01, "prior", ha="center", va="center", fontsize=10.5, color=INK,
             fontweight="bold")
-    ax.text(1.00, MID - 0.19, "TabICLv2", ha="center", va="center", fontsize=8.6,
+    ax.text(0.83, MID - 0.19, "TabICLv2", ha="center", va="center", fontsize=7.4,
             color=MUTED)
-    arrow(ax, 1.75, 2.10, MID, color=BLUE)
+    arrow(ax, 1.41, 1.67, MID, color=BLUE)
 
     # the stream of synthetic tables, widths varying to hint at the feature axis
-    widths = [0.20, 0.32, 0.16, 0.28, 0.22, 0.35, 0.18, 0.30]
-    x = 2.22
+    widths = [0.16, 0.26, 0.13, 0.23, 0.18, 0.28]
+    x = 1.77
     for w in widths:
-        table_icon(ax, x, MID - 0.25, w, 0.50, BLUE)
-        x += 0.42
-    stream_l, stream_r = 2.22, x - 0.42 + widths[-1]
+        table_icon(ax, x, MID - 0.21, w, 0.42, BLUE)
+        x += 0.36
+    stream_l, stream_r = 1.77, x - 0.36 + widths[-1]
     mid_stream = (stream_l + stream_r) / 2
 
-    ax.text(mid_stream, MID - 0.47, "millions of synthetic tables", ha="center",
-            va="center", fontsize=9, color=MUTED)
+    ax.text(mid_stream, MID - 0.36, "millions of synthetic tables", ha="center",
+            va="center", fontsize=7.6, color=MUTED)
 
     # the question: in what order?
-    ax.plot([stream_l, stream_r], [MID + 0.37, MID + 0.37], color=ORANGE, lw=1.4)
+    ax.plot([stream_l, stream_r], [MID + 0.30, MID + 0.30], color=ORANGE, lw=1.2)
     for tx in (stream_l, stream_r):
-        ax.plot([tx, tx], [MID + 0.29, MID + 0.37], color=ORANGE, lw=1.4)
-    ax.text(mid_stream, MID + 0.75, "in what order?", ha="center", va="center",
-            fontsize=13, color=ORANGE, fontweight="bold")
-    ax.text(mid_stream, MID + 0.51, "the one thing we change", ha="center", va="center",
-            fontsize=8.8, color=MUTED, style="italic")
+        ax.plot([tx, tx], [MID + 0.24, MID + 0.30], color=ORANGE, lw=1.2)
+    ax.text(mid_stream, MID + 0.63, "in what order?", ha="center", va="center",
+            fontsize=10.5, color=ORANGE, fontweight="bold")
+    ax.text(mid_stream, MID + 0.44, "the one thing we change", ha="center", va="center",
+            fontsize=7.4, color=MUTED, style="italic")
 
-    arrow(ax, 5.72, 6.07, MID, color=BLUE)
-    model_block(ax, 6.17, MID - 0.48, 1.32, 0.96, "nanoTabPFN", "trained once")
+    arrow(ax, stream_r + 0.10, stream_r + 0.36, MID, color=BLUE)
+    model_block(ax, stream_r + 0.44, MID - 0.40, 1.16, 0.80, "nanoTabPFN", "trained once")
 
     # ---------------- divider ----------------
-    ax.plot([7.85, 7.85], [0.40, 2.42], color="#d9dce1", lw=1.4, ls=(0, (3, 3)))
+    ax.plot([DIVIDER_X, DIVIDER_X], [0.18, 1.42], color="#d9dce1", lw=1.3, ls=(0, (3, 3)))
 
     # ---------------- right: inference ----------------
-    ax.text(8.15, HEAD_Y, "New dataset  ·  one forward pass, no gradients",
-            ha="left", va="center", fontsize=11.5, color=PURPLE, fontweight="bold")
+    ax.text(5.76, HEAD_Y, "New dataset  ·  one forward pass",
+            ha="left", va="center", fontsize=9.8, color=PURPLE, fontweight="bold")
 
     # dataset: 4 labelled rows + 2 unlabelled rows, x-cells plus a y-cell
-    cell_w, cell_h, vgap = 0.20, 0.145, 0.035
+    cell_w, cell_h, vgap, hgap = 0.16, 0.108, 0.026, 0.022
     n_cols, n_rows = 4, 6
     grid_h = n_rows * (cell_h + vgap) - vgap
-    dx, dy = 8.20, MID - grid_h / 2
+    dx, dy = 5.78, MID - grid_h / 2
     for r in range(n_rows):
         yy = dy + (n_rows - 1 - r) * (cell_h + vgap)
         for c in range(n_cols):
-            ax.add_patch(plt.Rectangle((dx + c * (cell_w + 0.03), yy), cell_w, cell_h,
-                                       fc="#eef3fc", ec=GRID, lw=0.8))
-        yx = dx + n_cols * (cell_w + 0.03) + 0.08
+            ax.add_patch(plt.Rectangle((dx + c * (cell_w + hgap), yy), cell_w, cell_h,
+                                       fc="#eef3fc", ec=GRID, lw=0.7))
+        yx = dx + n_cols * (cell_w + hgap) + 0.05
         if r < 4:
             ax.add_patch(plt.Rectangle((yx, yy), cell_w, cell_h, fc=ORANGE, ec="none"))
         else:
             ax.add_patch(plt.Rectangle((yx, yy), cell_w, cell_h, fc="white", ec=GREY,
-                                       lw=0.9))
+                                       lw=0.8))
             ax.text(yx + cell_w / 2, yy + cell_h / 2, "?", ha="center", va="center",
-                    fontsize=8.5, color=MUTED, fontweight="bold")
-    right_edge = dx + n_cols * (cell_w + 0.03) + 0.08 + cell_w
+                    fontsize=6.6, color=MUTED, fontweight="bold")
+    right_edge = dx + n_cols * (cell_w + hgap) + 0.05 + cell_w
 
-    # legend above the grid, clear of it: colour plus wording, never colour alone
+    # legend above the grid: colour plus wording, never colour alone
     for i, (fc, ec, txt) in enumerate([
-            (ORANGE, "none", "labelled rows, given as in-context examples"),
+            (ORANGE, "none", "labelled rows = in-context examples"),
             ("white", GREY, "rows to predict")]):
-        ly = dy + grid_h + 0.40 - i * 0.22
-        ax.add_patch(plt.Rectangle((dx, ly - 0.055), 0.15, 0.11, fc=fc, ec=ec, lw=0.9))
-        ax.text(dx + 0.23, ly, txt, ha="left", va="center", fontsize=8.6, color=INK)
+        ly = dy + grid_h + 0.33 - i * 0.18
+        ax.add_patch(plt.Rectangle((dx, ly - 0.042), 0.11, 0.084, fc=fc, ec=ec, lw=0.8))
+        ax.text(dx + 0.17, ly, txt, ha="left", va="center", fontsize=7.4, color=INK)
 
-    ax.text(dx, dy - 0.22, "no gradient steps on this data", ha="left", va="center",
-            fontsize=8.6, color=MUTED, style="italic")
-
-    arrow(ax, right_edge + 0.16, right_edge + 0.52, MID, color=PURPLE)
-    model_block(ax, right_edge + 0.62, MID - 0.48, 1.32, 0.96, "nanoTabPFN", "frozen")
-    arrow(ax, right_edge + 2.10, right_edge + 2.46, MID, color=PURPLE)
+    arrow(ax, right_edge + 0.12, right_edge + 0.38, MID, color=PURPLE)
+    model_block(ax, right_edge + 0.46, MID - 0.40, 1.16, 0.80, "nanoTabPFN", "frozen, no gradients")
+    px_arrow = right_edge + 1.62
+    arrow(ax, px_arrow + 0.08, px_arrow + 0.34, MID, color=PURPLE)
 
     # predictions: the two unknown cells, now filled
-    px = right_edge + 2.56
+    px = px_arrow + 0.42
     for r in range(2):
         yy = MID - 0.02 + (1 - r) * (cell_h + vgap)
         ax.add_patch(plt.Rectangle((px, yy), cell_w, cell_h, fc=ORANGE, ec="none"))
-    ax.text(px + cell_w / 2, MID - 0.28, "predictions", ha="center", va="center",
-            fontsize=8.8, color=MUTED)
+    ax.text(px + cell_w / 2, MID - 0.22, "predictions", ha="center", va="center",
+            fontsize=7.4, color=MUTED)
 
     fig.savefig(out_path, dpi=300, facecolor="white")
     plt.close(fig)
-    print(f"saved -> {out_path}")
+    print(f"saved -> {out_path}  ({FIG_W} x {FIG_H} in)")
 
 
 if __name__ == "__main__":
