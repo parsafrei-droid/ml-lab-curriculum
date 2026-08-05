@@ -32,7 +32,7 @@ def panel_pool(ax, x):
     header(ax, x, top, "1", "Pool generation", BLUE)
     # prior box (kept clear of the number badge above it)
     rbox(ax, x + 0.25, top - 1.14, PANEL_W - 0.50, 0.52, BLUE)
-    ax.text(x + PANEL_W / 2, top - 0.81, "TabICLv2 prior", ha="center", va="center",
+    ax.text(x + PANEL_W / 2, top - 0.81, "TabICLv2 prior [4]", ha="center", va="center",
             fontsize=11.5, color=INK, fontweight="bold")
     ax.text(x + PANEL_W / 2, top - 1.03, "unmodified  ·  seed 0", ha="center",
             va="center", fontsize=9, color=MUTED)
@@ -82,7 +82,7 @@ def panel_difficulty(ax, x):
             ha="center", va="center", fontsize=8.6, color=MUTED, style="italic")
     rows = [("axis 1  ·  feature count", "2 → 60"),
             ("axis 2  ·  in-context examples", "20 → 180"),
-            ("combined  ·  both axes", "w₁ + w₂")]
+            ("reverse  ·  negative weight", "−w")]
     ys = [top - 1.00, top - 2.05, top - 3.10]
     for (label, right), yy in zip(rows, ys):
         rbox(ax, x + 0.25, yy - 0.78, PANEL_W - 0.50, 0.80, "#e8c9ae", lw=1.1, r=0.06)
@@ -92,14 +92,14 @@ def panel_difficulty(ax, x):
                 fontsize=8.6, color=MUTED)
     mini_tables(ax, x + 0.40, ys[0] - 0.70)
     grow_bars(ax, x + 0.40, ys[1] - 0.70)
-    # combined: growing squares
-    sx = x + 0.40
+    # reverse: the same ramp read backwards
+    bx = x + 0.40
     for i in range(5):
-        s = 0.09 + i * 0.05
-        ax.add_patch(plt.Rectangle((sx, ys[2] - 0.70), s, s, fc=ORANGE, ec="none"))
-        sx += s + 0.13
-    ax.text(x + PANEL_W / 2, Y0 + 0.15, "a negative weight reverses an axis", ha="center",
-            va="center", fontsize=9, color=ORANGE, style="italic")
+        h = 0.08 + (4 - i) * 0.07
+        ax.add_patch(plt.Rectangle((bx, ys[2] - 0.70), 0.18, h, fc=ORANGE, ec="none"))
+        bx += 0.28
+    ax.text(x + PANEL_W / 2, Y0 + 0.15, "each axis min-max normalised, then weighted",
+            ha="center", va="center", fontsize=9, color=ORANGE, style="italic")
 
 
 def strip(ax, x, y, w, widths, color):
@@ -153,25 +153,16 @@ def panel_train(ax, x):
             va="center", fontsize=8.2, color=MUTED)
     ax.add_patch(FancyArrowPatch((x + PANEL_W / 2, top - 1.66), (x + PANEL_W / 2, top - 1.84),
                                  arrowstyle="-|>", mutation_scale=14, color=PURPLE, lw=1.5))
-    rbox(ax, x + 0.25, top - 2.34, PANEL_W - 0.50, 0.42, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 2.13, "2,500 steps × 32 = one pass", ha="center",
+    rbox(ax, x + 0.25, top - 2.42, PANEL_W - 0.50, 0.44, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 2.20, "2,500 steps × 32 = one pass", ha="center",
             va="center", fontsize=9.5, color=INK, fontweight="bold")
-    # validation box with easy/medium/hard chips
-    rbox(ax, x + 0.25, top - 3.28, PANEL_W - 0.50, 0.80, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 2.66, "validation  ·  96 held-out tables", ha="center",
-            va="center", fontsize=8.8, color=INK)
-    for i, (band, shade) in enumerate([("easy", "#ded5f0"), ("medium", "#b9a5dd"),
-                                       ("hard", "#6b4fa0")]):
-        cx = x + 0.40 + i * 0.78
-        ax.add_patch(FancyBboxPatch((cx, top - 3.14), 0.66, 0.30,
-                                    boxstyle="round,pad=0.02,rounding_size=0.05",
-                                    fc=shade, ec="none"))
-        ax.text(cx + 0.33, top - 2.99, band, ha="center", va="center", fontsize=8,
-                color="white" if i == 2 else INK)
-    rbox(ax, x + 0.25, top - 4.06, PANEL_W - 0.50, 0.56, PURPLE)
-    ax.text(x + PANEL_W / 2, top - 3.68, "TabArena  ·  ROC-AUC", ha="center", va="center",
-            fontsize=9.8, color=INK, fontweight="bold")
-    ax.text(x + PANEL_W / 2, top - 3.92, "16 tasks  ·  seeds 42/1/2", ha="center",
+    rbox(ax, x + 0.25, top - 3.10, PANEL_W - 0.50, 0.44, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 2.88, "validation  ·  96 held-out tables", ha="center",
+            va="center", fontsize=9.2, color=INK)
+    rbox(ax, x + 0.25, top - 3.92, PANEL_W - 0.50, 0.62, PURPLE)
+    ax.text(x + PANEL_W / 2, top - 3.51, "TabArena [5]  ·  ROC-AUC", ha="center",
+            va="center", fontsize=9.8, color=INK, fontweight="bold")
+    ax.text(x + PANEL_W / 2, top - 3.76, "16 tasks  ·  seeds 42/1/2", ha="center",
             va="center", fontsize=8.6, color=MUTED)
     ax.text(x + PANEL_W / 2, Y0 + 0.15, "identical for every run", ha="center",
             va="center", fontsize=9, color=PURPLE, style="italic")

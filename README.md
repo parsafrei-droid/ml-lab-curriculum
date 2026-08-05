@@ -153,16 +153,27 @@ nothing.
 
 ### Efficiency (the headline plot)
 
-`final/figures/time_curve.png` (regenerate with
-`experiments/third_wave/plot_time_curve.py`): validation ROC-AUC vs wall-clock time for
-one matched pair (seed 42, A100). A forward pass costs more on wide tables, so the
-ascending order front-loads cheap tables — after a quarter of its steps it has spent ~8%
-of its arithmetic vs ~25% for the baseline. It reaches the baseline's best validation
-ROC-AUC (0.598) after 395 s where the baseline needs 899 s: **2.3× sooner** (4.6× in
-FLOPs, see `flops_curve.png`). Total run time is essentially unchanged (910 s vs 936 s);
-the saving is realised at matched quality, not at completion. The in-context ordering
-follows the baseline's compute profile exactly — features are the only axis that also
-changes compute.
+A forward pass costs more on a wide table, so the ascending order front-loads cheap ones
+and reaches a given quality with far less arithmetic. On the mean of three seeds,
+reaching 0.58 on the synthetic validation set takes **5.3× fewer FLOPs and 1.9× fewer
+steps** than random order, and the curriculum is ahead at 24 of 25 checkpoints.
+
+Three views of the same runs, all starting from a measured untrained score rather than an
+assumed one (`final/code/step0_eval.py`):
+
+| Figure | Script | What it shows |
+|---|---|---|
+| `flops_curve_mean.png` | `final/code/flops_curve.py` | ROC-AUC vs FLOPs, 3 seeds, ±1 sd bands. The poster figure. |
+| `step_curve.png` | `final/code/step_curve.py` | Same runs against training steps. |
+| `time_curve.png` | `experiments/third_wave/plot_time_curve.py` | Wall clock, single matched pair (seed 42, A100). |
+
+Two cautions. Wall-clock and FLOPs speedups are not interchangeable here: per-step wall
+clock barely moves while per-step FLOPs vary 16×, so the run is overhead-bound and the
+FLOPs saving is real but does not show up in time at this model size. And the logged
+`cum_flops` column is inconsistent across run sets — the timed pair used the current
+`approx_flops`, the three-seed runs an older version about 50× off — so
+`final/code/flops_curve.py` recomputes it from the logged feature counts, which
+reproduces the correctly logged totals to within 2–4%.
 
 ---
 
@@ -208,7 +219,7 @@ still gains nothing. What separates the two groups is that the winning arms begi
 **bottom** of the range (4, 9, 4 mean features at the first checkpoint) and progress
 upward across the whole run, while the losing arms begin on a shuffled mixture (15–27)
 and their ascent covers only the upper half. Read the trajectories in
-`final/figures/path_endpoint.png` before restating this claim.
+`final/figures/path_vs_endpoint.png` before restating this claim.
 
 **Replication and honest effect size.** These runs use an independently generated pool,
 which closes the pool-sample risk: the effect reproduces. But its size is smaller than
@@ -216,8 +227,8 @@ section 4 reports — full sort gives 0.802 at 5 seeds here, and 0.801 on the sa
 seeds section 4 used, against 0.811 there. **Treat +0.011 as the defensible effect size,
 not +0.020.**
 
-Figures: `final/figures/path_vs_endpoint.png` (overlaid trajectories plus a score bar
-chart) and `final/figures/path_endpoint.png` (per-arm trajectory beside per-seed scores).
+Figure: `final/figures/path_vs_endpoint.png` (overlaid trajectories plus a score bar
+chart), built by `final/code/path_vs_endpoint_figure.py`.
 
 ---
 
@@ -278,9 +289,19 @@ acknowledgement (48.7 h / 299 jobs) is unaffected.
 cd experiments/second_wave
 ./run.sh                      # builds the 80k pool (seed 0), trains baseline +
                               # curriculum_features on seeds 42/1/2, evaluates on TabArena
-python ../../final/code/stats.py   # paired per-dataset statistics
-python ../third_wave/plot_time_curve.py   # Figure 1 (time + FLOPs views)
-python ../../final/code/results_table.py  # results table figure
+python ../../final/code/stats.py           # paired per-dataset statistics
+```
+
+Then the poster figures, from the repository root:
+
+```bash
+python final/code/step0_eval.py       # measured untrained score, feeds both curves
+python final/code/flops_curve.py      # Figure 1
+python final/code/step_curve.py       # same runs against training steps
+python final/code/results_table.py    # Table 1
+python final/code/auc_curve_table.py  # Table 2
+python final/code/pipeline_figure.py  # method schematic
+python final/code/intro_figure.py     # introduction schematic
 ```
 
 Configs for every other ordering are in `experiments/second_wave/configs/`. The ramp
@@ -293,7 +314,6 @@ The stage 2b test runs on Kaggle:
 python experiments/robustness/kaggle_endpoint_vs_duration.py   # 20 runs, 4 arms x 5 seeds
 python experiments/robustness/kaggle_path_vs_endpoint.py       # 15 runs, 3 arms x 5 seeds
 python final/code/path_vs_endpoint_figure.py                   # overlaid-trajectory figure
-python final/code/path_endpoint_figure.py                      # per-arm trajectory figure
 ```
 
 ---

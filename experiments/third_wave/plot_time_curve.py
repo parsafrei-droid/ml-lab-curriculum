@@ -1,4 +1,5 @@
 ﻿import csv
+import json
 import pathlib
 
 import matplotlib
@@ -8,6 +9,11 @@ import numpy as np
 
 BASE = pathlib.Path(__file__).parent
 POOL = BASE.parent / "Second_Wave" / "results"
+
+# Measured score of the untrained model, so the curves start at a real point rather than
+# at the first checkpoint. Both runs here are seed 42; see final/code/step0_eval.py.
+STEP0 = json.loads((BASE.parent.parent / "final" / "figures" /
+                    "step0_val_auc.json").read_text())["s42"]
 
 # Blue/orange pair validated for colour-vision deficiency (all checks pass). The orange
 # is below 3:1 contrast on white, so both curves carry direct ink labels too.
@@ -27,8 +33,8 @@ def read(path):
 
 
 def series(rows, xcol):
-    x = np.array([float(r[xcol]) for r in rows])
-    y = np.array([float(r["val_auc"]) for r in rows])
+    x = np.array([0.0] + [float(r[xcol]) for r in rows])
+    y = np.array([STEP0] + [float(r["val_auc"]) for r in rows])
     return x, y
 
 
@@ -55,14 +61,6 @@ def make(xcol, xlabel, fname, unit, scale=1.0, fig_label="Figure 1"):
         ax.plot(x / scale, y, color=color, lw=2.4, label=label,
                 marker="o", ms=3, mfc=color, mec="none")
 
-    # direct labels in ink, where the curves are far apart
-    i_c = len(cx) // 3
-    ax.annotate("Curriculum", (cx[i_c] / scale, cy[i_c]), xytext=(-8, 10),
-                textcoords="offset points", ha="right", fontsize=10, color=INK)
-    i_b = len(bx) // 2
-    ax.annotate("Baseline", (bx[i_b] / scale, by[i_b]), xytext=(10, -14),
-                textcoords="offset points", ha="left", fontsize=10, color=INK)
-
     ax.axhline(target, ls=":", c="#999999", lw=1)
     ax.annotate("", xy=(t_base / scale, target), xytext=(t_curr / scale, target),
                 arrowprops=dict(arrowstyle="<->", color="#333333", lw=1.6))
@@ -78,14 +76,13 @@ def make(xcol, xlabel, fname, unit, scale=1.0, fig_label="Figure 1"):
                 ls=":", c="#bbbbbb", lw=1, zorder=0)
 
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("ROC-AUC (validation)")
-    ax.set_title("Same pool, same total compute: the curriculum reaches the\n"
-                 f"baseline's best quality {factor:.1f}x sooner", fontsize=11)
+    ax.set_ylabel("ROC-AUC")
     ax.legend(loc="lower right", frameon=False)
     ax.grid(True, alpha=0.13)
 
     fig.text(0.10, 0.03,
-             f"{fig_label} - validation ROC-AUC vs {xlabel.lower().split(' (')[0]} (seed 42, A100)",
+             f"{fig_label} - held-out synthetic validation, single matched pair "
+             f"(seed 42, A100).",
              va="bottom", ha="left", fontsize=9.5, color=MUTED)
 
     out = BASE / "figures"
